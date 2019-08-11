@@ -1,0 +1,72 @@
+#ifndef _BMS_H_
+#define _BMS_H_
+
+#define LOGSIZE 10
+#include "logline.h";
+#include <Arduino.h>
+#include "FS.h"
+#include <SD.h>
+#include "SPIFFS.h"
+#include "config.h"
+#include "MedianFilter.h"
+#define NUM_CELL_MAX 13
+
+
+class Bms_  {
+  public:
+  
+    Bms_();
+    double Thermistor(int RawADC);
+    bool   ReadEeprom();
+    bool   init();
+    void   eepromProg();
+    void   dumpEEProm();
+    void   reverseDumpEEProm();
+    void readBms();
+
+    File logFile;
+    bool bmsOk;
+    byte val1,val2,stat1,stat2;
+    bool first=true;
+    long lasttime;
+    int i2cadr; 
+    int n; 
+    double espBatV;
+
+    double vTot=0;
+    double Ah=0;
+
+    float minVolt,maxVolt;
+    int minCell,maxCell;
+
+    // O>890 Eeprom
+     uint16_t correction[12];
+    uint8_t oz890Eeprom[128];
+
+// OZ890 runtime regs
+    MedianFilter<int, 3> cellVoltFlts[NUM_CELL_MAX];
+    MedianFilter<int, 3> currentFltr;
+     uint16_t cellVoltages[NUM_CELL_MAX];
+     uint16_t minCellVoltages[NUM_CELL_MAX];
+     uint16_t idleCellVoltages[NUM_CELL_MAX];
+    double current;
+    uint8_t cellNumber; // cellNumberReg 0x06
+    uint8_t shutdownStatus; // shutDownRegister // 0x15
+    uint8_t errorStatus;  // CheckYesRegister 0x1c
+    uint8_t fetEnable; // FET Enable Register 0x1e
+    uint8_t fetDisable; // FET Disable Register 0x1f
+    uint8_t senseResistor; // Current sense resistor 0x34
+    uint8_t progeeprom=0; // Flag to trigger program eeprom
+    uint8_t readeeprom=0; // Flag to trigger read eeprom
+    uint8_t clearlog=0;
+    LogLine ll;
+
+
+    uint16_t logptr;
+    float alog[LOGSIZE];
+    float vlog[LOGSIZE];
+    uint32_t mslog[LOGSIZE];
+};
+
+extern  Bms_ Bms;
+#endif

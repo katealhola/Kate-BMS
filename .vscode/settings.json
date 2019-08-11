@@ -1,0 +1,6 @@
+{
+    "terminal.integrated.env.osx": {
+        "PATH": "/Users/kate/.platformio/penv/bin:/Users/kate/.platformio/penv:/usr/local/cuda/bin:/opt/local/bin:/opt/local/sbin:/usr/local/bin:/opt/local/bin:/opt/local/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/share/dotnet:/opt/X11/bin:/Library/Frameworks/Mono.framework/Versions/Current/Commands:/Applications/Wireshark.app/Contents/MacOS:/Users/kate/basware/activator-1.3.7-minimal/",
+        "PLATFORMIO_CALLER": "vscode"
+    }
+}
