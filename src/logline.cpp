@@ -5,29 +5,35 @@ LogLine::LogLine() {
       sync=0xfeedc0de;
     };
     
-LogLine::LogLine(float _v,float _a,float _ah,uint8_t _errorStatus,uint8_t _shutdownStatus,uint8_t _fetDisable,    uint16_t *_cellVoltages,long int _ms) {
+LogLine::LogLine(float _v,float _a,float _ah,uint32_t _status,    uint16_t *_cellVoltages,long int _ms) {
     sync=0xfeedc0de;
     a=_a;
     v=_v;
     ah=_ah;
-    errorStatus=_errorStatus;
-    shutdownStatus=_shutdownStatus;
-    fetDisable=_fetDisable;
+    status=_status;
      memcpy(cellVoltages,_cellVoltages,sizeof(cellVoltages));
     ms=_ms;
   };
 
-  void LogLine::combine(LogLine ll)
+  void LogLine::awgSum(LogLine ll)
   {
-    errorStatus|=ll.errorStatus;
-    shutdownStatus|=ll.shutdownStatus;
-    fetDisable|=ll.fetDisable;
-    if(ll.a<0.0) { // DIscharge
-      
-    } else {  // charge
-      
-    }
-    
+    status|=ll.status;
+    a+=ll.a;
+    v+=ll.v;
+    ah=ll.ah;
+    for (int i = 0; i < NUMOFCELL; i++) {
+      cellVoltages[i]+=ll.cellVoltages[i];
+    };
+    ms=ll.ms;
+  }
+
+  void LogLine::awgDiv(int n)
+  {
+    a/=n;
+    v+=n;
+    for (int i = 0; i < NUMOFCELL; i++) {
+      cellVoltages[i]/=n;
+    };
   }
   
   String LogLine::toJson() {
@@ -36,21 +42,19 @@ LogLine::LogLine(float _v,float _a,float _ah,uint8_t _errorStatus,uint8_t _shutd
       s+="\"V\":"+String(v, 3)+",";
       s+="\"A\":"+String(a, 3)+",";
       s+="\"Ah\":"+String(ah, 3)+",\"cell\":[";
-      for (int i = 0; i < 13; i++) {
+      for (int i = 0; i < NUMOFCELL; i++) {
           s += String((cellVoltages[i]) / 1000.0, 3);
-          if(i<12) s+=",";
+          if(i<(NUMOFCELL-1)) s+=",";
       };
       s+="],";
-      s+="\"es\":"+String(errorStatus)+",";
-      s+="\"ss\":"+String(errorStatus)+",";
-      s+="\"fd\":"+String(errorStatus)+",";
+      s+="\"es\":"+String(status)+",";
       s+="\"ms\":"+String(ms)+"}";
     return s;
   ;}
   
   String LogLine::toString() {
     String s=" V="+String(v,2)+" A="+String(a,3)+" Ah="+String(ah,3)+" time="+String(ms)+
-    " sd="+String(shutdownStatus,16)+" err="+String(errorStatus,16)+" FETdis="+String(fetDisable,16);
+    " sd="+String(status,16);
     for (int i = 0; i < 13; i++) {
       s += "V[ " + String(i + 1) + "]=" + String((cellVoltages[i]) / 1000.0, 3);
     };

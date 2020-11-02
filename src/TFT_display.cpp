@@ -1,7 +1,14 @@
 #include "config.h"
+#include "bms.h"
+#include "ant_bms.h"
+#include <WiFi.h>
 
 #ifdef TFT
 #include "Free_Fonts.h" // Include the header file attached to this sketch
+#include <Fonts/GFXFF/gfxfont.h>
+#include "Mono16.h"
+#include "Dialog28.h"
+#include "Dialog32.h"
 
 //#include "SPI.h"
 #include "TFT_eSPI.h"
@@ -11,10 +18,9 @@ extern TFT_eSPI  display ;
 #define TFT_GREY 0x5AEB
 #define TFT_ORANGE      0xFD20      /* 255, 165,   0 */
 
-#define M_SIZE 0.7
+#define M_SIZE 0.6
 
-#include "bms.h";
-#include <WiFi.h>
+
 extern const char* ssid;
 
 float ltx = 0;    // Saved x coord of bottom of needle
@@ -31,7 +37,11 @@ void drawarc(TFT_eSprite &tft,int x,int y, int r,int arcStart,int arcEnd,int w,u
 void displayInit()
 {
    display.init();
-  display.setRotation(0);
+#ifdef SMALLDISPLAY
+  display.setRotation(1);
+#else
+ display.setRotation(0);
+#endif
   display.fillScreen(TFT_BLACK);
   display.setTextColor(TFT_WHITE);
   display.setTextWrap(true);
@@ -40,8 +50,8 @@ void displayInit()
   pinMode(TFT_BL, OUTPUT);
   digitalWrite(TFT_BL, HIGH);
   display.setTextColor(TFT_GREEN, TFT_BLACK);
-        display.fillScreen(TFT_BLACK);
-        display.setTextDatum(MC_DATUM);
+  display.fillScreen(TFT_BLACK);
+  display.setTextDatum(MC_DATUM);
 }
 
 void startUpDisplay()
@@ -72,17 +82,17 @@ void displayString(int x, int y, String s)
   display.println(s);
 }
 
-void networkDisplay()
+void networkDisplay(TFT_eSprite &m )
 {
   if (!WiFi.isConnected()) {
-    display.println("trying to reconnect Wifi");
-    display.println(String("ssid ") + ssid);
+    m.println("trying to reconnect Wifi");
+    m.println(String("ssid ") + ssid);
   } else
   {
-    display.println("connected");
-    display.println(String("ssid ") + ssid);
+    m.println("connected");
+    m.println(String("ssid ") + ssid);
     String ips = WiFi.localIP().toString();
-    display.println(ips);
+    m.println(ips);
   }
 }
 
@@ -98,25 +108,42 @@ int valueToPixels(float val, float minval, float maxval,int maxPixels)
 
 void statusDisplay(TFT_eSprite &m )
 {
-  String s, s2;
+  int xpos =  0;
+  int ypos =  0;
 
-  s = String(Bms.vTot, 2) + "V ";
+  String s, s2;
+  //m.setFreeFont(FM18);
+  //m.setFreeFont(&Monospaced_plain_16);
+  m.setFreeFont(&Dialog_plain_32);
+  s = String(Bms.vTot, 1) + "V ";
   s += String(Bms.current, 2) + "A ";
   s2 = s;
-  m.println(s);
-  s = String(Bms.Ah, 1) + "Ah ";
-  s += String(Bms.current * Bms.vTot, 3) + "W ";
+  m.drawString(s, xpos, ypos, GFXFF);  // Draw the text string in the selected GFX free font
+  ypos += m.fontHeight(GFXFF);                      // Get the font height and move ypos down
+
+  //m.println(s);
+  //m.setFreeFont(FM12);
+  m.setFreeFont(&Dialog_plain_28);
+  s = String(Bms.Ah, 2) + "Ah ";
+  s += String(Bms.current * Bms.vTot, 0) + "W ";
   s2 += s;
+  m.drawString(s, xpos, ypos, GFXFF);  // Draw the text string in the selected GFX free font
+  ypos += m.fontHeight(GFXFF);                      // Get the font height and move ypos down
+  //m.println(s);
   m.setFreeFont(FM9);
-  m.println(s);
+  
   s = String(Bms.minCell + 1) + "=" + String(Bms.minVolt, 2);
   s += " " + String(Bms.maxCell + 1) + "=" + String(Bms.maxVolt, 2);
   s += " b=" + String(Bms.espBatV,2);
   s2 += s;
-  m.println(s);
+  m.drawString(s, xpos, ypos, GFXFF);  // Draw the text string in the selected GFX free font
+  ypos += m.fontHeight(GFXFF);                      // Get the font height and move ypos down
+  //m.println(s);
   if(Bms.shutdownStatus!=0 || Bms.errorStatus!=0 || Bms.fetEnable!=0 || Bms.fetDisable!=0) {
     s = "s=" + String(Bms.shutdownStatus, 16) + " e=" + String(Bms.errorStatus, 16) + " n=" + String(Bms.fetEnable, 16) + " d=" + String(Bms.fetDisable, 16);
-    m.println(s);
+    m.drawString(s, xpos, ypos, GFXFF);  // Draw the text string in the selected GFX free font
+  ypos += m.fontHeight(GFXFF);                      // Get the font height and move ypos down
+    //m.println(s);
   }
 
 }
@@ -127,7 +154,7 @@ void barplot(TFT_eSprite &m )
   float plotmin=2.4;
   
   
-  m.fillRect(0, 0, m.width() - 1, m.height() - 1, TFT_PURPLE);
+  m.fillRect(0, 0, m.width() - 1, m.height() - 1, TFT_BLACK);
   m.setFreeFont(FM9);
   for (int i = 0; i < 12; i++) {
     float v=4.4 - i * 0.2;
@@ -151,7 +178,7 @@ void barplot(TFT_eSprite &m )
 
 
 
-void spiDispkayTask( void * parameter ) {
+void spiDisplayTask( void * parameter ) {
   int refresh = 0;
   unsigned int dispTimeout = 0;
   int bt = 0;
@@ -163,9 +190,36 @@ void spiDispkayTask( void * parameter ) {
   display.setTextColor(TFT_WHITE, TFT_BLACK);
   display.setCursor(0, 0);
   display.println();
-  display.setFreeFont(FM12);
+ // display.setFreeFont(FM12);
   while (1) {
-    
+#ifdef SMALLDISPLAY
+TFT_eSprite m = TFT_eSprite(&display);
+    m.setColorDepth(8);
+    m.createSprite(display.width(), 128);
+    m.fillSprite(TFT_BLACK);
+
+    //m.setTextFont(2);
+    m.setFreeFont(FM12);
+    m.setTextDatum(TL_DATUM);
+    m.setTextColor(TFT_WHITE);
+    m.setCursor(0, 0);
+    m.println();
+    b = digitalRead(BUTTON);
+    //Serial.println("b="+String(b)+" ref="+String(refresh)+" to="+String(dispTimeout));
+    if((b==0) && (bt==1)) dispmode=dispmode >=2?0:dispmode+1;
+       bt=b;
+       if(fabs(Bms.current)>0.5 || Bms.fetDisable) dispTimeout=n;
+       if(n<(dispTimeout+600)) {
+          if(bt) statusDisplay(m);
+            else {
+              if(dispmode==0) networkDisplay(m);
+              if(dispmode==1) barplot(m);
+             // if(dispmode==2) cellVoltagesDisplay(m);
+            }
+       }
+    m.pushSprite(0, 0);
+    m.deleteSprite();
+#else    
     // display.fillScreen(CUSTOM_DARK);
     TFT_eSprite m = TFT_eSprite(&display);
     m.setColorDepth(8);
@@ -186,7 +240,7 @@ void spiDispkayTask( void * parameter ) {
     }
     bt = b;
     if (bt) statusDisplay(m);
-    else networkDisplay();
+    else networkDisplay(m);
     m.pushSprite(0, 0);
     m.deleteSprite();
 
@@ -197,9 +251,10 @@ void spiDispkayTask( void * parameter ) {
     m.fillSprite(TFT_BLUE);
     String s1 = String(Bms.vTot, 2) + "V ";
     String s2 = String(Bms.current, 2) + "A ";
-    analogMeter(m,s1,s2,Bms.vTot);
+    analogMeter(m,s1,s2,Bms.current);
     m.pushSprite(0,70);
     m.deleteSprite();
+    #endif
     delay(100);
   }
 
@@ -215,11 +270,16 @@ void analogMeter(TFT_eSprite &tft,String label1,String label2,float val1)
   tft.setTextColor(TFT_WHITE);  // Text colour
 
   
-  
+  #define XPOS 150
+  #define YPOS 150
   #define SCALE_COLOR TFT_WHITE
-  int arcStart=-1200;
-  int arcEnd=120;
-  int tickSpasing=10;
+  int arcStart=-100;
+  int arcEnd=100;
+  int tickSpasing=20;
+
+  
+  int nLabel=0;
+  int nLabelI=5;
   
   for (int i = arcStart; i <= arcEnd; i += tickSpasing) {
     // Long scale tick length
@@ -228,79 +288,55 @@ void analogMeter(TFT_eSprite &tft,String label1,String label2,float val1)
     // Coodinates of tick to draw
     float sx = cos((i - 90) * 0.0174532925);
     float sy = sin((i - 90) * 0.0174532925);
-    uint16_t x0 = sx * (M_SIZE*100 + tl) + M_SIZE*120;
-    uint16_t y0 = sy * (M_SIZE*100 + tl) + M_SIZE*150;
-    uint16_t x1 = sx * M_SIZE*100 + M_SIZE*120;
-    uint16_t y1 = sy * M_SIZE*100 + M_SIZE*150;
+    uint16_t x0 = sx * (M_SIZE*100 + tl) + M_SIZE*XPOS;
+    uint16_t y0 = sy * (M_SIZE*100 + tl) + M_SIZE*YPOS;
+    uint16_t x1 = sx * M_SIZE*100 + M_SIZE*XPOS;
+    uint16_t y1 = sy * M_SIZE*100 + M_SIZE*YPOS;
 
     // Coordinates of next tick for zone fill
     float sx2 = cos((i + tickSpasing - 90) * 0.0174532925);
     float sy2 = sin((i + tickSpasing - 90) * 0.0174532925);
-    int x2 = sx2 * (M_SIZE*100 + tl) + M_SIZE*120;
-    int y2 = sy2 * (M_SIZE*100 + tl) + M_SIZE*150;
-    int x3 = sx2 * M_SIZE*100 + M_SIZE*120;
-    int y3 = sy2 * M_SIZE*100 + M_SIZE*150;
+    int x2 = sx2 * (M_SIZE*100 + tl) + M_SIZE*XPOS;
+    int y2 = sy2 * (M_SIZE*100 + tl) + M_SIZE*YPOS;
+    int x3 = sx2 * M_SIZE*100 + M_SIZE*XPOS;
+    int y3 = sy2 * M_SIZE*100 + M_SIZE*YPOS;
 
-    // Yellow zone limits
-    //if (i >= -50 && i < 0) {
-    //  tft.fillTriangle(x0, y0, x1, y1, x2, y2, TFT_YELLOW);
-    //  tft.fillTriangle(x1, y1, x2, y2, x3, y3, TFT_YELLOW);
-    //}
-
-
-  
-    // Green zone limits
-    /*if (i >= 0 && i < 25) {
-      tft.fillTriangle(x0, y0, x1, y1, x2, y2, TFT_GREEN);
-      tft.fillTriangle(x1, y1, x2, y2, x3, y3, TFT_GREEN);
-    }
-
-    // Orange zone limits
-    if (i >= 25 && i < 50) {
-      tft.fillTriangle(x0, y0, x1, y1, x2, y2, TFT_ORANGE);
-      tft.fillTriangle(x1, y1, x2, y2, x3, y3, TFT_ORANGE);
-    }*/
 
     // Short scale tick length
     if (i % 25 != 0) tl = 8;
 
     // Recalculate coords incase tick lenght changed
-    x0 = sx * (M_SIZE*100 + tl) + M_SIZE*120;
-    y0 = sy * (M_SIZE*100 + tl) + M_SIZE*150;
-    x1 = sx * M_SIZE*100 + M_SIZE*120;
-    y1 = sy * M_SIZE*100 + M_SIZE*150;
+    x0 = sx * (M_SIZE*100 + tl) + M_SIZE*XPOS;
+    y0 = sy * (M_SIZE*100 + tl) + M_SIZE*YPOS;
+    x1 = sx * M_SIZE*100 + M_SIZE*XPOS;
+    y1 = sy * M_SIZE*100 + M_SIZE*YPOS;
 
     // Draw tick
     tft.drawLine(x0, y0, x1, y1, SCALE_COLOR);
 
     // Check if labels should be drawn, with position tweaks
-    if (i % 25 == 0) {
+    if (i % 10 == 0) {
       // Calculate label positions
-      x0 = sx * (M_SIZE*100 + tl + 10) + M_SIZE*120;
-      y0 = sy * (M_SIZE*100 + tl + 10) + M_SIZE*150;
-      switch (i / 25) {
-        case -2: tft.drawCentreString("0", x0+4, y0-4, 1); break;
-        case -1: tft.drawCentreString("25", x0+2, y0, 1); break;
-        case 0: tft.drawCentreString("50", x0, y0, 1); break;
-        case 1: tft.drawCentreString("75", x0, y0, 1); break;
-        case 2: tft.drawCentreString("100", x0-2, y0-4, 1); break;
+      x0 = sx * (M_SIZE*100 + tl + 10) + M_SIZE*XPOS;
+      y0 = sy * (M_SIZE*100 + tl + 10) + M_SIZE*YPOS;
+      tft.drawCentreString(String(nLabel), x0+4, y0-4, 1); 
+      nLabel+=nLabelI;
       }
-    }
 
     // Now draw the arc of the scale
     //sx = cos((i + tickSpasing - 90) * 0.0174532925);
     //sy = sin((i + tickSpasing - 90) * 0.0174532925);
-    x0 = sx2 * M_SIZE*100 + M_SIZE*120;
-    y0 = sy2 * M_SIZE*100 + M_SIZE*150;
+    x0 = sx2 * M_SIZE*100 + M_SIZE*XPOS;
+    y0 = sy2 * M_SIZE*100 + M_SIZE*YPOS;
     // Draw scale arc, don't draw the last part
     if (i < arcEnd) tft.drawLine(x0, y0, x1, y1, SCALE_COLOR);
-  }
-  TFTShape w=TFTShapeBuilder::buildAnnularWedge(32,80,M_SIZE*100,-100,300);
-  w.fillDrawH(&tft,50,160,TFT_GREEN,TFT_GREEN,2);
-  //drawarc(tft,M_SIZE*120,M_SIZE*150,M_SIZE*100, -100, 70, 8,TFT_GREEN);
+  };
+  TFTShape w=TFTShapeBuilder::buildAnnularWedge(32,M_SIZE*80,M_SIZE*100,arcStart,45);
+  w.fillDrawH(&tft, M_SIZE*XPOS,M_SIZE*YPOS,TFT_GREEN,TFT_GREEN,1);
+  //drawarc(tft,M_SIZE*XPOS,M_SIZE*YPOS,M_SIZE*100, -100, 70, 8,TFT_GREEN);
  // tft.drawString("%RH", M_SIZE*(3 + 230 - 40), M_SIZE*(119 - 20), 2); // Units at bottom right
-  tft.drawCentreString(label1, M_SIZE*120, M_SIZE*120-5, 4); // Comment out to avoid font 4
-  tft.drawCentreString(label2, M_SIZE*120, M_SIZE*120+20, 4); // Comment out to avoid font 4
+  tft.drawCentreString(label1, M_SIZE*XPOS, M_SIZE*YPOS-5, 4); // Comment out to avoid font 4
+  tft.drawCentreString(label2, M_SIZE*XPOS, M_SIZE*YPOS+20, 4); // Comment out to avoid font 4
   //tft.drawRect(1, M_SIZE*3, M_SIZE*236, M_SIZE*126, TFT_BLACK); // Draw bezel line
 
  // plotNeedle(tft,0, 0); // Put meter needle at 0

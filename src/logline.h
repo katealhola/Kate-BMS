@@ -3,15 +3,17 @@
 
 #include <stdint.h>
 #include <Arduino.h>
+#include <config.h>
 
-#define NUMOFCELL 13
+
 
 class LogLine {
    uint32_t sync;
   public: 
     LogLine() ;
-    LogLine(float _v,float _a,float _ah,uint8_t _errorStatus,uint8_t _shutdownStatus,uint8_t _fetDisable,    uint16_t *_cellVoltages,long int _ms);
-    void combine(LogLine ll);
+    LogLine(float _v,float _a,float _ah,uint32_t _status,uint16_t *_cellVoltages,long int _ms);
+    void awgSum(LogLine ll);
+    void awgDiv(int n);
     String toJson();
     String toString() ;
     bool isValid();
@@ -20,11 +22,9 @@ class LogLine {
     float a;
     float ah;
     uint16_t speed;
-    uint16_t cellVoltages[NUMOFCELL];
-    uint8_t fetDisable;
-    uint8_t shutdownStatus;
-    uint8_t errorStatus;
+    uint32_t status;
     uint32_t ms;
+    uint16_t cellVoltages[NUMOFCELL];
  };
  #endif
 

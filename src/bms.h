@@ -1,12 +1,14 @@
+#ifdef OZ890BMS
 #ifndef _BMS_H_
 #define _BMS_H_
 
+
+
 #define LOGSIZE 10
-#include "logline.h";
+#include "logline.h"
+#include "logfile.h"
 #include <Arduino.h>
-#include "FS.h"
-#include <SD.h>
-#include "SPIFFS.h"
+
 #include "config.h"
 #include "MedianFilter.h"
 #define NUM_CELL_MAX 13
@@ -24,7 +26,7 @@ class Bms_  {
     void   reverseDumpEEProm();
     void readBms();
 
-    File logFile;
+    
     bool bmsOk;
     byte val1,val2,stat1,stat2;
     bool first=true;
@@ -69,4 +71,5 @@ class Bms_  {
 };
 
 extern  Bms_ Bms;
+#endif
 #endif

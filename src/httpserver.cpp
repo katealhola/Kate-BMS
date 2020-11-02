@@ -1,6 +1,7 @@
 #include "config.h"
 #include "httpserver.h"
 #include "bms.h"
+#include "ant_bms.h"
 #include "configfile.h"
 
 extern ConfigFile configFile;
@@ -41,10 +42,15 @@ void HttpServer::WifiLoop()
             client.println("Access-Control-Allow-Origin:*");
             client.println();
 
+#ifdef O890BMS
             if (urlLine.startsWith("GET /eeprom")) eeprom(client);  
             if (urlLine.startsWith("GET /readeeprom")) readEeprom(client); 
-            if (urlLine.startsWith("GET /config")) getConfig(client);                 
+            if (urlLine.startsWith("GET /progeeprom")) { Bms.progeeprom=1; }// Schedule EEPROM programming 
             if (urlLine.startsWith("GET /raweeprom")) raweeprom(client);
+#endif
+
+            if (urlLine.startsWith("GET /config")) getConfig(client);                 
+           
             if (urlLine.startsWith("GET /dir")) listDir(client);
             if (urlLine.startsWith("GET /getfile")) {
               String fileName=getStringParam(urlLine,"file=",String(""));
@@ -63,9 +69,7 @@ void HttpServer::WifiLoop()
                 setParameter(client,urlLine);
             }
 
-            if (urlLine.startsWith("GET /progeeprom")) {         
-                Bms.progeeprom=1; // Schedule EEPROM programming
-            }
+            
 
             
            
@@ -156,7 +160,7 @@ void HttpServer::getConfig(WiFiClient &client)
 
 
 
-
+#ifdef OZ890BMS
 void HttpServer::raweeprom(WiFiClient &client) {
    // the content of the HTTP response follows the header:
             client.print("{\"values\":[");
@@ -184,10 +188,7 @@ void HttpServer::readEeprom(WiFiClient &client) {
             client.print("\"gain\":1\}");
 }
 
-String HttpServer::parameter(String name,int Reg,String comment,String value)
-{
- return(String("{\"name\":")+"\""+name+"\","+"\"value\":"+value+",\"comment\":"+"\""+comment+"\"}");
-}
+
 
 void HttpServer::eeprom(WiFiClient &client) {
    // the content of the HTTP response follows the header:
@@ -248,45 +249,6 @@ void HttpServer::eeprom(WiFiClient &client) {
              client.print("]}\n");
 }
 
-
-void HttpServer::batt(WiFiClient &client) 
-{
-  client.print("{\"cellVoltages\":[");
-   for (int i = 0; i < 13; i++)      
-   {
-      client.print(String((Bms.cellVoltages[i]) / 1000.0, 3));
-      if(i<12-1)client.print(',');
-   
-   }
-   client.print("],");
-   client.print("minCellVoltages\":[");
-   for (int i = 0; i < 13; i++)      
-   {
-      client.print(String((Bms.minCellVoltages[i]) / 1000.0, 3));
-      if(i<12-1)client.print(',');
-   
-   }
-   client.print("],");
-   client.print("idleCellVoltages\":[");
-   for (int i = 0; i < 13; i++)      
-   {
-      client.print(String((Bms.idleCellVoltages[i]) / 1000.0, 3));
-      if(i<12-1)client.print(',');
-   
-   }
-   client.print("],");
-   
-   client.print("\"V\":"+String(Bms.vTot,2)+",");
-   client.print("\"A\":"+String(Bms.current)+",");
-   client.print("\"Ah\":"+String(Bms.Ah)+",");
-   client.print("\"Number of cells\":"+String(Bms.cellNumber&015)+",");
-   client.print("\"ShutdownStatus\":\""+String(Bms.shutdownStatus,16)+"\",");
-   client.print("\"ErrorStatus\":\""+String(Bms.errorStatus,16)+"\",");
-   client.print("\"FetEnable\":\""+String(Bms.fetEnable,16)+"\",");
-   client.print("\"FetDisable\":\""+String(Bms.fetDisable,16)+"\"\}");
-}
-
-
 void HttpServer::setParameter(WiFiClient &client,String urlLine)
 {
   Serial.println("setParameter:"+urlLine);
@@ -297,6 +259,60 @@ void HttpServer::setParameter(WiFiClient &client,String urlLine)
     Bms.oz890Eeprom[0x33]=0x6f;  // UC=01 ( safety scan on, can read write user data SS=1 sleep mode on BS=1 enable bleeding, ENS, external bleeding, max bleed 4 cells
   
 }
+#endif
+
+#ifndef OZ890BMS
+void HttpServer::setParameter(WiFiClient &client,String urlLine)
+{
+
+  
+}
+#endif
+
+String HttpServer::parameter(String name,int Reg,String comment,String value)
+{
+ return(String("{\"name\":")+"\""+name+"\","+"\"value\":"+value+",\"comment\":"+"\""+comment+"\"}");
+}
+
+void HttpServer::batt(WiFiClient &client) 
+{
+  client.print("{\"cellVoltages\":[");
+   for (int i = 0; i < NUM_CELL_MAX; i++)      
+   {
+      client.print(String((Bms.cellVoltages[i]) / 1000.0, 3));
+      if(i<12)client.print(',');
+   
+   }
+   client.print("],");
+   client.print("\"minCellVoltages\":[");
+   for (int i = 0; i < NUM_CELL_MAX; i++)      
+   {
+      client.print(String((Bms.minCellVoltages[i]) / 1000.0, 3));
+      if(i<12)client.print(',');
+   
+   }
+   client.print("],");
+   client.print("\"idleCellVoltages\":[");
+   for (int i = 0; i < NUM_CELL_MAX; i++)      
+   {
+      client.print(String((Bms.idleCellVoltages[i]) / 1000.0, 3));
+      if(i<12)client.print(',');
+   
+   }
+   client.print("],");
+   
+   client.print("\"V\":"+String(Bms.vTot,2)+",");
+   client.print("\"A\":"+String(Bms.current)+",");
+   client.print("\"Ah\":"+String(Bms.Ah)+",");
+   client.print("\"NumberOfCells\":"+String(Bms.cellNumber&015)+",");
+   client.print("\"ShutdownStatus\":\""+String(Bms.shutdownStatus,16)+"\",");
+   client.print("\"ErrorStatus\":\""+String(Bms.errorStatus,16)+"\",");
+   client.print("\"FetEnable\":\""+String(Bms.fetEnable,16)+"\",");
+   client.print("\"FetDisable\":\""+String(Bms.fetDisable,16)+"\"\}");
+}
+
+
+
 
 void HttpServer::clearLogFile(WiFiClient &client)
 {
@@ -342,7 +358,7 @@ void HttpServer::listDir(WiFiClient &client,String prefix,const char * dirname, 
     }
     if(!root.isDirectory()){
         Serial.println(" - not a directory");
-        client.print(String("{\"error\":\"- not a directory\",\"directory\”:\"")+dirname+"\"}");
+        client.print(String("{\"error\":\"- not a directory\",\"directory\":\"")+dirname+"\"}");
         return;
     }
 

@@ -1,3 +1,4 @@
+#ifdef OZ890BMS
 #include "bms.h"
 #include "logline.h"
 #include "OZ890.h"
@@ -24,8 +25,7 @@ bool Bms_::init() {
   cellNumber = 13;
   senseResistor = oz890Eeprom[0x34];
   if (senseResistor == 0) senseResistor = 25; // 25 mOhm
-  logFile = SPIFFS.open(LOGFILE, FILE_APPEND);
-  if (!logFile) Serial.println("- failed to open file for appending:" + String(LOGFILE));
+  
    for (int i = 0; i < Bms.cellNumber; i++) minCellVoltages[i]=43000;
   return bmsOk;
 
@@ -123,9 +123,9 @@ void Bms_::readBms() {
   float vTmp = 0;
   String s;
   for (int i = 0; i < NUM_CELL_MAX; i++) {
-    uint16_t cellVoltage = getCellVoltage(i + 1); //+correction[i];
-    if (cellVoltage > 7000 || cellVoltage == 0) cellVoltage = getCellVoltage(i + 1);
-    if (cellVoltage > 7000 || cellVoltage == 0) cellVoltage = getCellVoltage(i + 1);
+    uint16_t cellVoltage = 0;
+    int j=0;
+    while(j++<10 &&(cellVoltage > 5000 || cellVoltage < 100)) cellVoltage = getCellVoltage(i + 1);
     // uint16_t cv=(getRegister(0x32 +i*2)>>3)+(getRegister(0x33 +i*2)<<5);
     cellVoltages[i] = cellVoltage > 7000 ? 0 : cellVoltage;
      s += " Cell " + String(i + 1) + ":" + String((cellVoltages[i]) / 1000.0, 3);
@@ -185,13 +185,9 @@ void Bms_::readBms() {
   errorStatus = getRegister(0x1c);
   fetEnable = getRegister(0x1e);
   fetDisable = getRegister(0x1f);
-  ll = LogLine(vTot, current, Ah, shutdownStatus, errorStatus, fetDisable, &cellVoltages[0], lasttime);
-  if (logFile && ( (current < -0.5) || (current > 0.2 && !(n & 0x3f)) || !(n & 0xff) )) {
-    logFile.write((uint8_t*)&ll, sizeof(ll));
-    //   logFile.flush();
-    Serial.println(ll.toString() + "W");
-  }
-  else Serial.println(ll.toString());
+  ll = LogLine(vTot, current, Ah, shutdownStatus<<16+errorStatus<<8+fetDisable, &cellVoltages[0], lasttime);
+  LogFile.addLogLine(&ll);
+  Serial.println(ll.toString());
 
 
 
@@ -218,3 +214,4 @@ double Bms_::Thermistor(int RawADC) {
 
 
 Bms_ Bms = Bms_();
+#endif

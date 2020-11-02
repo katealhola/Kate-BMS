@@ -14,14 +14,7 @@ void ConfigFile::loadConfiguration(const char *filename) {
     Serial.println("Failed to read file, using default configuration");*/
     if (error)
     Serial.println(F("Failed to read file, using default configuration"));
-    
-    /*_root = jsonBuffer.parseObject(DEFAULTCONFIG);
-    if (!_root.success())
-    Serial.println(String("Failed to parse default configuration")+DEFAULTCONFIG);
-*/
-  // Copy values from the JsonObject to the Config
-  //clientSsid=root()["clientSsid"] | "tapla",  // <- source
-       
+      
   // Close the file (File's destructor doesn't close the file)
   file.close();
 }
@@ -29,8 +22,8 @@ String ConfigFile::getClientSsid() {
   return doc["clientSsid"] | DEFAULT_SSID; // <- source
 }
 
-String ConfigFile::getString(const char * key,const char *defval) {
-  return doc[key] | defval; // <- source
+String ConfigFile::getString(const char * key,const char* defval) {
+  return doc[key] | String(defval); // <- source
 }
 
 void ConfigFile::saveConfiguration(const char *filename) {

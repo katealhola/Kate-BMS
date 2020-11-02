@@ -21,10 +21,24 @@
 
 // TTGO T4 2.2in TFT
 #ifdef TFT
+#ifdef T4_V12
 #include "T4_V12.h"
-//#include "T4_V13.h"
+#endif
+#ifdef T4_V13
+#include "T4_V13.h"
+#endif
+#ifdef TTGO_T_DISPLAY
+#include "ttgo-t-display.h"
+#endif
 
+#ifdef OZ890BMS
 #define OZ890_RESETN 34
+#define NUMOFCELL 13
+#endif
+
+#ifdef ANTBMS
+#define NUMOFCELL 20
+#endif
 
 #define BUTTON BUTTON_1
 
