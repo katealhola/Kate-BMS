@@ -122,11 +122,64 @@ void Bms_::parseAntFrame(unsigned char *frame, unsigned int frameLen)
   for (int i = 0; i < NUM_CELL_MAX; i++)
     Serial.print(String(__bswap_16(ant->vcell[i]) / 1000.0) + " ");
   Serial.println();
-  if(millis()>lastLogTime+logInterval) {
-    lastLogTime=millis();
-    ll = LogLine(vTot, current, Ah, 0, &cellVoltages[0], lasttime);
-   LogFile.addLogLine(&ll);
+  minVolt = 100.0;
+  maxVolt = 0;
+  for (int i = 0; i < cellNumber; i++) {
+    if ((cellVoltages[i] / 1000.0) > maxVolt) {
+      maxCell = i;
+      maxVolt = cellVoltages[i] / 1000.0;
+    }
+    if ((cellVoltages[i] / 1000.0) < minVolt) {
+      minCell = i;
+      minVolt = cellVoltages[i] / 1000.0;
+    }
   }
+  if (current < 0.5 && current > -0.5) {
+    for (int i = 0; i < cellNumber; i++) idleCellVoltages[i] = Bms.cellVoltages[i];
+  }
+  
+  if (current <= -0.2) {
+    for (int i = 0; i < cellNumber; i++) {
+      if (cellVoltages[i] < minCellVoltages[i]) minCellVoltages[i] = cellVoltages[i];
+    }
+  }
+  if (current >= 0.5) {
+    for (int i = 0; i < cellNumber; i++) minCellVoltages[i] = cellVoltages[i]; // charging, minimum voltage not known
+  }
+  ll = LogLine(vTot, current, Ah, 0, &cellVoltages[0], lasttime);
+  LogFile.addLogLine(&ll);
+};
+
+String Bms_::antFrameToJson()
+{
+  String s;
+  ant_frame *ant = (ant_frame *)frame;
+  s=String("{\"cellVolt\":[");
+  for (int i = 0; i < NUM_CELL_MAX; i++) {
+    s+=String(__bswap_16(ant->vcell[i]) / 1000.0);
+    if(i<(NUM_CELL_MAX-1)) s+="'";
+  };
+  s+="\n";
+  s+=String("\"vtot\":")+String(__bswap_16(ant->vtot) / 10.0)+",\n";
+  s+=String("\"I1\":")+String(__bswap_16(ant->current[1]/10.0))+",\n";
+  s+=String("\"I0\":")+String(__bswap_16(ant->current[0]/10.0))+",\n";
+  s+=String("\"t\":")+String(__bswap_32(ant->cumulativeTime))+",\n";
+  s+=String("\"chargePresentage\":")+String(ant->chargePersentage)+",\n";
+  s+=String("\"capacity\":")+String(__bswap_32(ant->capacity))+",\n";
+  s+=String("\"remainingCapacity\":")+String(__bswap_32(ant->remainingCapacity))+",\n";
+  s+=String("\"cycleCapacity\":")+String(__bswap_32(ant-> cycleCapacity))+",\n";
+  s+=String("\"t\":")+String(__bswap_32(ant->cumulativeTime))+",\n";
+  s+=String("\"batNumHighCellVolt\":")+String(ant->batNumHighCellVolt)+",\n";
+  s+=String("\"highCellVolt\":")+String(__bswap_16(ant->highCellVolt))+",\n";
+  s+=String("\"batNumLowCellVolt\":")+String(ant->batNumLowCellVolt)+",\n";
+  s+=String("\"lowCellVolt\":")+String(__bswap_16(ant->lowCellVolt))+",\n";
+  s+=String("\"avgCellVolt\":")+String(__bswap_16(ant->avgCellVolt))+",\n";
+  s+=String("\"numSeriesCell\":")+String(ant->numSeriesCell)+",\n";
+  s+=String("\"disChargeFetVolt\":")+String(__bswap_16(ant->disChargeFetVolt))+",\n";
+  s+=String("\"hargeFetVolt\":")+String(__bswap_16(ant->chargeFetVolt))+",\n";
+  s+=String("\"zeroCurrentVolt\":")+String(__bswap_16(ant->zeroCurrentVolt))+",\n";
+  s+="}";
+  return s;
 };
 
 Bms_ Bms = Bms_();

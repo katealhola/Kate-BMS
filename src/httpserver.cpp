@@ -41,7 +41,9 @@ void HttpServer::WifiLoop()
             client.println("Content-Type: application/json; charset=utf-8");
             client.println("Access-Control-Allow-Origin:*");
             client.println();
-
+#ifdef ANTBMS
+            if (urlLine.startsWith("GET /antframe")) antFrame(client);  
+#endif
 #ifdef O890BMS
             if (urlLine.startsWith("GET /eeprom")) eeprom(client);  
             if (urlLine.startsWith("GET /readeeprom")) readEeprom(client); 
@@ -158,6 +160,16 @@ void HttpServer::getConfig(WiFiClient &client)
     client.print(configFile.toString());
 }
 
+#ifdef ANTBMS
+void HttpServer::antFrame(WiFiClient &client)
+{
+  String s=Bms.antFrameToJson();
+  Serial.println(s);
+  client.print(s);
+};
+
+
+#endif
 
 
 #ifdef OZ890BMS

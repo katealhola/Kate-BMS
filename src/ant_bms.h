@@ -17,7 +17,7 @@
 
 #define ANT_BUF_LEN 160
 
-typedef struct {
+typedef class {
   public:
   unsigned char frame_sync[4]; // frame sync 0xaa, 0x55,0xaa,0xff
   unsigned short vtot;
@@ -65,6 +65,7 @@ class Bms_  {
     void   sendBms(unsigned char *frame, unsigned int frameLen);
     void   parseAntFrame(unsigned char *frame, unsigned int frameLen);
     void   sendBmsReq(req,int parameter);
+    String antFrameToJson();
     unsigned char c, c1, c2, c3;   // Frame header detection
     unsigned char buffer[ANT_BUF_LEN];
     unsigned int  p;
