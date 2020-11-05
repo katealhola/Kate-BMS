@@ -69,3 +69,4 @@ LogLine::LogLine(float _v,float _a,float _ah,uint32_t _status,    uint16_t *_cel
     VALIDCELL(6) && VALIDCELL(7) && VALIDCELL(8) && VALIDCELL(9) && VALIDCELL(10) && VALIDCELL(11) && VALIDCELL(12) );
   };
  
+ 
