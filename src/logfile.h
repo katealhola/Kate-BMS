@@ -10,6 +10,7 @@
 #include "logline.h"
 
 #define NFILES 4
+#define ITEMS_PER_LOGFILE 1000
 
 class logF {
     public:
@@ -26,10 +27,13 @@ class LogFile_ {
     public:
     struct logF files[NFILES];
     File logFile;
+    int logFileIndex; // in files array
+    int logFileSeq;
     LogFile_();
     void addLogLine(LogLine *ll);
     void scanLogFiles();
-    void addLogFile(logF l);
+    int addLogFile(logF l);
+    void newLogFile();
     void clearLog();
     uint32_t lastLogMs;
     uint32_t dischargeLogPeriod;
