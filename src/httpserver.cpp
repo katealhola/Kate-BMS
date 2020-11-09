@@ -50,7 +50,7 @@ void HttpServer::WifiLoop()
             if (urlLine.startsWith("GET /progeeprom")) { Bms.progeeprom=1; }// Schedule EEPROM programming 
             if (urlLine.startsWith("GET /raweeprom")) raweeprom(client);
 #endif
-
+            if (urlLine.startsWith("GET /logStatus")) logStat(client);  
             if (urlLine.startsWith("GET /config")) getConfig(client);                 
            
             if (urlLine.startsWith("GET /dir")) listDir(client);
@@ -159,6 +159,13 @@ void HttpServer::getConfig(WiFiClient &client)
 {
     client.print(configFile.toString());
 }
+
+void HttpServer::logStat(WiFiClient &client)
+{
+  String s=LogFile.toJson();
+  Serial.println(s);
+  client.print(s);
+};
 
 #ifdef ANTBMS
 void HttpServer::antFrame(WiFiClient &client)

@@ -134,6 +134,14 @@ void LogFile_::addLogLine(LogLine *ll)
     }
 };
 
+String LogFile_::toJson(){
+    String s;
+    s="\"files\":[";
+    for(int i = 0; i < NFILES; i++) s+=files[i].toJson()+(i<(NFILES-1))?",":"]";
+
+    return s;
+};
+
 logF::logF()
 {
     name = "";
@@ -154,6 +162,11 @@ logF::logF(const logF &f)
     seq = f.seq;
     fileSize = f.fileSize;
     items = f.items;
+};
+
+String logF::toJson()
+{
+    return "{\"name:\""+name+",\"seq:\""+String(seq)+",\"fileSize:\""+String(fileSize)+",\"items:\""+String(items)+"}";
 };
 
 LogFile_ LogFile = LogFile_();

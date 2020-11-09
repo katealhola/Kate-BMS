@@ -21,6 +21,7 @@ class logF {
     logF();
     logF(String n,int sq,int siz,int it) ;
     logF(const logF &f);
+    String toJson();
 };
 
 class LogFile_ {
@@ -35,6 +36,7 @@ class LogFile_ {
     int addLogFile(logF l);
     void newLogFile();
     void clearLog();
+    String toJson();
     uint32_t lastLogMs;
     uint32_t dischargeLogPeriod;
     uint32_t chargeLogPeriod;

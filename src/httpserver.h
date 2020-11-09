@@ -30,7 +30,7 @@ public:
 #ifdef ANTBMS
   void antFrame(WiFiClient &client);
 #endif
-
+  void logStat(WiFiClient &client);
   String parameter(String name,int reg,String comment,String value);
   int getIntParam(String urlLine,String paramName,int defval);
   String getStringParam(String urlLine,String paramName,String defval);
