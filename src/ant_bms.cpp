@@ -115,7 +115,8 @@ void Bms_::parseAntFrame(unsigned char *frame, unsigned int frameLen)
   current = cur / 10.0;
   short cur0 = __bswap_16(ant->current[0]);
   unsigned int ttime=__bswap_32(ant->cumulativeTime);
-  Serial.print("V:"+String(vTot) + "V "+String(current) + "A " + String(cur0) + " "+String(ant->chargePersentage)+"% "+String(ttime)+" "+String(ant->numSeriesCell));
+  float remCap=__bswap_16(ant->remainingCapacity);
+  Serial.print("V:"+String(vTot) + "V "+String(current) + "A " + String(cur0) + " "+String(ant->chargePersentage)+"% "+String(remCap,3)+"Ah "+String(ttime)+" "+String(ant->numSeriesCell));
   for (int i = 0; i < NUM_CELL_MAX; i++)
     cellVoltages[i] = __bswap_16(ant->vcell[i]);
   Serial.println();
@@ -137,7 +138,7 @@ void Bms_::parseAntFrame(unsigned char *frame, unsigned int frameLen)
   if (current < 0.5 && current > -0.5) {
     for (int i = 0; i < cellNumber; i++) idleCellVoltages[i] = Bms.cellVoltages[i];
   }
-  
+
   if (current <= -0.2) {
     for (int i = 0; i < cellNumber; i++) {
       if (cellVoltages[i] < minCellVoltages[i]) minCellVoltages[i] = cellVoltages[i];
@@ -146,7 +147,8 @@ void Bms_::parseAntFrame(unsigned char *frame, unsigned int frameLen)
   if (current >= 0.5) {
     for (int i = 0; i < cellNumber; i++) minCellVoltages[i] = cellVoltages[i]; // charging, minimum voltage not known
   }
-  ll = LogLine(vTot, current, Ah, 0, &cellVoltages[0], lasttime);
+  uint32_t status=(ant->chargeFetState)<<24+(ant->dischargeFetState)<<16+(ant->balancerState)<<8;
+  ll = LogLine(vTot, current, Ah, remCap, status, &cellVoltages[0], lasttime);
   LogFile.addLogLine(&ll);
 };
 

@@ -101,27 +101,23 @@ void HttpServer::getLogFile(WiFiClient &client,int offset,int nlines,int combine
   LogLine ll;
   int lines=0;
   String s;
-  File file = SPIFFS.open(LOGFILE);
-    if(!file || file.isDirectory()){
-        Serial.println("- failed to open file for reading");
-        return;
-    }
-    int fileSize=file.size()/sizeof(ll);
-    file.seek((offset>=0?offset:fileSize+offset)*sizeof(ll));
-
-    Serial.println("- read from file:"+String(LOGFILE)+" len:"+String(file.size())+"loglines:"+String(file.size()/sizeof(ll))+" from="+String(offset)+" nlines="+String(nlines)+" combine="+String(combine));
-    client.print("{\"data\":[");
-    while(file.available() && nlines-- ){
+  File f;
+  
+  ll=LogFile.getLogLineAt(offset,f);
+  Serial.println("- read from file:"+String(f.name())+" len:"+String(f.size())+"loglines:"+String(f.size()/sizeof(ll))+" from="+String(offset)+" nlines="+String(nlines)+" combine="+String(combine));
+  client.print("{\"data\":[");
+  while(f  &&  ll.isValid() && nlines-- ) {
+        s=ll.toJson();
         if(s.length()>0) s+=",";
         client.println(s);
-        do { // Re-sync
+      /*  do { // Re-sync
           int n=file.read((uint8_t*)&ll,sizeof(ll));
           if(n==sizeof(ll) && !ll.isValid()) file.seek(1-sizeof(ll),SeekCur);
           if(n!=sizeof(ll)) nlines=0; // No more to read
         }
-        while(file.available() && !ll.isValid() && nlines);
-        Serial.println(ll.toString()+" f="+String(file.position()));
-        s=ll.toJson();
+        while(file.available() && !ll.isValid() && nlines);*/
+        Serial.println(ll.toString()+" f="+String(f.position()));
+        ll=LogFile.getLogLineAt(offset,f);
     };
     s+="]}";
     client.println(s);

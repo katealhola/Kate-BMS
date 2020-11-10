@@ -31,7 +31,7 @@ typedef class {
   unsigned short temperature[6];
   unsigned char chargeFetState;
   unsigned char dischargeFetState;
-  unsigned char balanderState;
+  unsigned char balancerState;
   unsigned short tireLenght;
   unsigned short pulseNumber;
   unsigned char relaySwitch;

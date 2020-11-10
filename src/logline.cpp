@@ -2,14 +2,16 @@
 
 
 LogLine::LogLine() {
-      sync=0xfeedc0de;
+     // sync=0xfeedc0de;
+     sync=0; // Not valid
     };
     
-LogLine::LogLine(float _v,float _a,float _ah,uint32_t _status,    uint16_t *_cellVoltages,long int _ms) {
+LogLine::LogLine(float _v,float _a,float _ah,float _remainingCapacity,uint32_t _status,    uint16_t *_cellVoltages,long int _ms) {
     sync=0xfeedc0de;
     a=_a;
     v=_v;
     ah=_ah;
+    remainingCapacity=_remainingCapacity;
     status=_status;
      memcpy(cellVoltages,_cellVoltages,sizeof(cellVoltages));
     ms=_ms;
@@ -41,7 +43,9 @@ LogLine::LogLine(float _v,float _a,float _ah,uint32_t _status,    uint16_t *_cel
       if(sync!=(uint32_t)0xfeedc0de) s+="\"sync\":\""+String(sync,16)+"\",";
       s+="\"V\":"+String(v, 3)+",";
       s+="\"A\":"+String(a, 3)+",";
-      s+="\"Ah\":"+String(ah, 3)+",\"cell\":[";
+      s+="\"Ah\":"+String(ah, 3)+",";
+      s+="\"remainingCapacity\":"+String(remainingCapacity, 2)+",";
+      s+"\"cell\":[";
       for (int i = 0; i < NUMOFCELL; i++) {
           s += String((cellVoltages[i]) / 1000.0, 3);
           if(i<(NUMOFCELL-1)) s+=",";

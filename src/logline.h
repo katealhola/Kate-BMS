@@ -11,7 +11,7 @@ class LogLine {
    uint32_t sync;
   public: 
     LogLine() ;
-    LogLine(float _v,float _a,float _ah,uint32_t _status,uint16_t *_cellVoltages,long int _ms);
+    LogLine(float _v,float _a,float _ah,float remainingCapacity,uint32_t _status,uint16_t *_cellVoltages,long int _ms);
     void awgSum(LogLine ll);
     void awgDiv(int n);
     String toJson();
@@ -20,7 +20,9 @@ class LogLine {
  
     float v;
     float a;
-    float ah;
+    float ah; // Use Ah
+    float capacityEstimate;
+    float remainingCapacity;
     uint16_t speed;
     uint32_t status;
     uint32_t ms;

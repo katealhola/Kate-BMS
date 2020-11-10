@@ -12,9 +12,11 @@ LogFile_::LogFile_()
     logFileSeq = 0;
     logFileIndex = -1;
     scanLogFiles();
-    if(logFileSeq ==0 ) newLogFile(); // If no log file make new one
-    else {
-       logFile = SPIFFS.open(files[logFileSeq].name, FILE_APPEND); 
+    if (logFileSeq == 0)
+        newLogFile(); // If no log file make new one
+    else
+    {
+        logFile = SPIFFS.open(files[logFileSeq].name, FILE_APPEND);
     }
 }
 void LogFile_::newLogFile()
@@ -75,6 +77,59 @@ void LogFile_::scanLogFiles()
     }
 }
 
+int LogFile_::getLogFileIndexFromSeq(int seq)
+{
+    int i = 0;
+    while (i < NFILES)
+    {
+        if (files[i].seq == seq)
+            return i;
+        else
+            i++;
+    }
+    return -1;
+}
+
+LogLine LogFile_::getLogLineAt(int &lix, File &f)
+{
+    int seq = logFileSeq;
+    int currentlix = lix;
+    int ix;
+    LogLine ll;
+    if (!f)
+    {
+        if (currentlix < 0)
+        { // From end backwards
+            while (seq >= 0 && (ix = getLogFileIndexFromSeq(seq)) > 0)
+                if ((files[ix].items + currentlix) < 0) // All data in current file
+                {
+                    currentlix += files[ix].items;
+                    seq--;
+                };
+        };
+        if (currentlix >= 0)
+        { // From befinning to forward
+            while (getLogFileIndexFromSeq(seq))
+                seq--;
+            while (seq >= 0 && (ix = getLogFileIndexFromSeq(seq)) > 0)
+                if ((currentlix - files[ix].items) > 0) // All data in current file
+                {
+                    currentlix -= files[ix].items;
+                    seq++;
+                }
+        };
+
+        f = SPIFFS.open(files[ix].name, "r");
+        int fileSize = f.size() / sizeof(LogLine);
+        f.seek((currentlix >= 0 ? currentlix : fileSize + currentlix) * sizeof(LogLine));
+    };
+    if(f&&f.available()) {
+        int n = f.read((uint8_t *)&ll, sizeof(ll));
+        lix++;
+    }
+    return ll;
+};
+
 int LogFile_::addLogFile(logF l)
 {
     int i = 0;
@@ -119,7 +174,8 @@ void LogFile_::clearLog()
 
 void LogFile_::addLogLine(LogLine *ll)
 {
-    if(files[logFileIndex].items>=ITEMS_PER_LOGFILE) {
+    if (files[logFileIndex].items >= ITEMS_PER_LOGFILE)
+    {
         logFile.flush();
         newLogFile();
     }
@@ -128,16 +184,18 @@ void LogFile_::addLogLine(LogLine *ll)
         logFile.write((uint8_t *)&ll, sizeof(ll));
         lastLogMs = ll->ms;
         files[logFileIndex].items++;
-        files[logFileIndex].fileSize+=sizeof(ll);
+        files[logFileIndex].fileSize += sizeof(ll);
         //   logFile.flush();
         Serial.println(ll->toString() + "W");
     }
 };
 
-String LogFile_::toJson(){
+String LogFile_::toJson()
+{
     String s;
-    s="\"files\":[";
-    for(int i = 0; i < NFILES; i++) s+=files[i].toJson()+(i<(NFILES-1))?",":"]";
+    s = "\"files\":[";
+    for (int i = 0; i < NFILES; i++)
+        s += files[i].toJson() + (i < (NFILES - 1)) ? "," : "]";
 
     return s;
 };
@@ -166,7 +224,7 @@ logF::logF(const logF &f)
 
 String logF::toJson()
 {
-    return "{\"name:\""+name+",\"seq:\""+String(seq)+",\"fileSize:\""+String(fileSize)+",\"items:\""+String(items)+"}";
+    return "{\"name:\"" + name + ",\"seq:\"" + String(seq) + ",\"fileSize:\"" + String(fileSize) + ",\"items:\"" + String(items) + "}";
 };
 
 LogFile_ LogFile = LogFile_();

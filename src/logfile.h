@@ -28,6 +28,8 @@ class LogFile_ {
     public:
     struct logF files[NFILES];
     File logFile;
+    File readFile;
+    int readFileIndex;
     int logFileIndex; // in files array
     int logFileSeq;
     LogFile_();
@@ -37,6 +39,8 @@ class LogFile_ {
     void newLogFile();
     void clearLog();
     String toJson();
+    int getLogFileIndexFromSeq(int seq);
+    LogLine getLogLineAt(int &index,File &f);
     uint32_t lastLogMs;
     uint32_t dischargeLogPeriod;
     uint32_t chargeLogPeriod;
