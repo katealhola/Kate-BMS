@@ -185,7 +185,7 @@ void Bms_::readBms() {
   errorStatus = getRegister(0x1c);
   fetEnable = getRegister(0x1e);
   fetDisable = getRegister(0x1f);
-  ll = LogLine(vTot, current, Ah, shutdownStatus<<16+errorStatus<<8+fetDisable, &cellVoltages[0], lasttime);
+  ll = LogLine(vTot, current, Ah, shutdownStatus<<16+errorStatus<<8+fetDisable,0.0, &cellVoltages[0], lasttime);
   LogFile.addLogLine(&ll);
   Serial.println(ll.toString());
 

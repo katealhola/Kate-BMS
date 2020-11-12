@@ -66,9 +66,9 @@ void startUpDisplay()
 
 void connectingDisplay()
 {
- display.fillScreen(CUSTOM_DARK);
+ /*display.fillScreen(CUSTOM_DARK);
   display.setTextColor(TFT_WHITE);
-  display.setCursor(20, 0);
+  display.setCursor(20, 0);*/
   display.println();  
   display.setFreeFont(FSB12); 
   display.print("connecting to ");
@@ -186,10 +186,12 @@ void spiDisplayTask( void * parameter ) {
   int dispmode = 0;
   unsigned int n = 0;
   int espBatV;
+  displayInit();
   display.fillScreen(CUSTOM_DARK);
   display.setTextColor(TFT_WHITE, TFT_BLACK);
   display.setCursor(0, 0);
-  display.println();
+  display.println("spiDisplayTask");
+  Serial.println("spiDisplayTask:Initialized\n");
  // display.setFreeFont(FM12);
   while (1) {
 #ifdef SMALLDISPLAY
@@ -255,7 +257,7 @@ TFT_eSprite m = TFT_eSprite(&display);
     m.pushSprite(0,70);
     m.deleteSprite();
     #endif
-    delay(100);
+    delay(200);
   }
 
 }

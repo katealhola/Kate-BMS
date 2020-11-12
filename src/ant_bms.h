@@ -3,7 +3,6 @@
 #define _BMS_H_
 
 
-
 #define LOGSIZE 10
 #include "logline.h"
 #include "logfile.h"
@@ -104,12 +103,6 @@ class Bms_  {
     uint8_t readeeprom=0; // Flag to trigger read eeprom
     uint8_t clearlog=0;
     LogLine ll;
-
-
-    uint16_t logptr;
-    float alog[LOGSIZE];
-    float vlog[LOGSIZE];
-    uint32_t mslog[LOGSIZE];
 };
 
 extern  Bms_ Bms;

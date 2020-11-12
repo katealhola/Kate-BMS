@@ -21,7 +21,7 @@ public:
   void setParameter(WiFiClient &client,String urlLine);
   void clearLogFile(WiFiClient &client);
   
-#ifdef O890BMS
+#ifdef OZ890BMS
   void raweeprom(WiFiClient &client);
   void eeprom(WiFiClient &client);
   void readEeprom(WiFiClient &client);

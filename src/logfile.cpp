@@ -25,6 +25,7 @@ void LogFile_::newLogFile()
     String fileName = "battery." + String(logFileSeq) + ".log";
     logFile = SPIFFS.open(fileName, FILE_APPEND);
     addLogFile(logF(fileName, logFileSeq, 0, 0));
+    Serial.println("LogFile:"+fileName+" created");
 
     if (!logFile)
         Serial.println("- failed to open file for appending:" + String(LOGFILE));
