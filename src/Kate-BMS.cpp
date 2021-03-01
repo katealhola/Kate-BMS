@@ -70,7 +70,6 @@ void uartBmsTask(void *parameter);
 #include "httpserver.h"
 
 int packetCounter;
-File logFile;
 HttpServer httpServer;
 int showConnected = 0;
 
@@ -110,6 +109,8 @@ void setup()
   configFile.loadConfiguration(CONFIGFILE);
   Serial.println(configFile.toString());
 
+  LogFile.init();
+  Serial.println("LogFile.init() done");
   displayInit();
 
   // Wire.setClock(300000);
@@ -117,15 +118,7 @@ void setup()
 
   startUpDisplay();
 
-  logFile = SPIFFS.open(LOGFILE, FILE_APPEND);
-  if (!logFile)
-  {
-    Serial.println("- failed to open file for appending:" + String(LOGFILE));
-    if (!logFile)
-    {
-      Serial.println("- failed to open file for writing:" + String(LOGFILE));
-    }
-  }
+  
   Serial.println();
   Serial.print("Connecting to ");
   Serial.println(configFile.getString(CLIENTSSID, DEFAULT_SSID));
@@ -203,7 +196,7 @@ void uartBmsTask(void *parameter)
       Bms.clearlog = 0;
     };
     Bms.readBms();
-    delay(200);
+    delay(150);
   }
 }
 #endif

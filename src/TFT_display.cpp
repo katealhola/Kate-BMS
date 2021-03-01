@@ -10,6 +10,8 @@
 #include "Dialog28.h"
 #include "Dialog32.h"
 
+#include "TFT_display.h"
+
 //#include "SPI.h"
 #include "TFT_eSPI.h"
 #include "TFTShape.h"
@@ -26,12 +28,6 @@ extern const char* ssid;
 float ltx = 0;    // Saved x coord of bottom of needle
 uint16_t osx = M_SIZE*120, osy = M_SIZE*120; // Saved x & y coords
 uint32_t updateTime = 0;       // time for next update
-
-int old_analog =  -999; // Value last displayed
-
-void plotNeedle(TFT_eSprite &tft,int value, byte ms_delay);
-void analogMeter(TFT_eSprite &tft,String label1,String label2,float val1);
-void drawarc(TFT_eSprite &tft,int x,int y, int r,int arcStart,int arcEnd,int w,uint16_t color);
 
 
 void displayInit()
@@ -162,17 +158,18 @@ void barplot(TFT_eSprite &m )
     if(i>0 && !(i&1)) m.drawString(String(v, 1), 0, pix-5);
     if(i>0)m.drawLine(40, m.height()-pix , m.width(), m.height()-pix,TFT_WHITE);
   }
-  for(int i=0;i<Bms.cellNumber;i++) {
+  int w=Bms.numCell ? 180/Bms.numCell:13;
+  for(int i=0;i<Bms.numCell;i++) {
     float v=Bms.cellVoltages[i] / 1000.0;
     float idleV=Bms.idleCellVoltages[i] / 1000.0;
     float minV=Bms.minCellVoltages[i] / 1000.0;
     int pix=valueToPixels(v,4.4,plotmin,m.height());
     int minPix=valueToPixels(minV,4.4,plotmin,m.height());
     int idlePix=valueToPixels(idleV,4.4,plotmin,m.height());
-    m.fillRect(i*13+60,pix,9,m.height()-pix,TFT_GREEN);
-    m.fillRect(i*13+58,minPix,14,4,TFT_WHITE);
-    String s=String(i)+" "+String(valueToPixels(v,4.4,3.0,m.height()))+"v="+String(v,2);
-   // Serial.println(s);
+    m.fillRect(i*w+60,pix,w-4,m.height()-pix,TFT_GREEN);
+    m.fillRect(i*w+58,minPix,w+1,4,TFT_WHITE);
+    //String s=String(i)+" "+String(valueToPixels(v,4.4,3.0,m.height()))+","+String(i*w+60)+" v="+String(v,2);
+    //Serial.println(s);
   }
 }
 
@@ -192,6 +189,7 @@ void spiDisplayTask( void * parameter ) {
   display.setCursor(0, 0);
   display.println("spiDisplayTask");
   Serial.println("spiDisplayTask:Initialized\n");
+  analogGauge *gauge=new analogGauge();
  // display.setFreeFont(FM12);
   while (1) {
 #ifdef SMALLDISPLAY
@@ -253,7 +251,7 @@ TFT_eSprite m = TFT_eSprite(&display);
     m.fillSprite(TFT_BLUE);
     String s1 = String(Bms.vTot, 2) + "V ";
     String s2 = String(Bms.current, 2) + "A ";
-    analogMeter(m,s1,s2,Bms.current);
+    gauge->drawGauge(m,s1,s2,Bms.current);
     m.pushSprite(0,70);
     m.deleteSprite();
     #endif
@@ -262,7 +260,19 @@ TFT_eSprite m = TFT_eSprite(&display);
 
 }
 
-void analogMeter(TFT_eSprite &tft,String label1,String label2,float val1)
+analogGauge::analogGauge() 
+{
+  old_analog =  -999; // Value last displayed
+  arcStart=-100;
+  arcEnd=100;
+  tickSpasing=20;
+  m_size=M_SIZE;
+  xpos=150;
+  ypos=150;
+
+} 
+
+void analogGauge::drawGauge(TFT_eSprite &tft,String label1,String label2,float val1)
 {
 
   // Meter outline
@@ -271,15 +281,8 @@ void analogMeter(TFT_eSprite &tft,String label1,String label2,float val1)
 
   tft.setTextColor(TFT_WHITE);  // Text colour
 
-  
-  #define XPOS 150
-  #define YPOS 150
   #define SCALE_COLOR TFT_WHITE
-  int arcStart=-100;
-  int arcEnd=100;
-  int tickSpasing=20;
 
-  
   int nLabel=0;
   int nLabelI=5;
   
@@ -290,28 +293,28 @@ void analogMeter(TFT_eSprite &tft,String label1,String label2,float val1)
     // Coodinates of tick to draw
     float sx = cos((i - 90) * 0.0174532925);
     float sy = sin((i - 90) * 0.0174532925);
-    uint16_t x0 = sx * (M_SIZE*100 + tl) + M_SIZE*XPOS;
-    uint16_t y0 = sy * (M_SIZE*100 + tl) + M_SIZE*YPOS;
-    uint16_t x1 = sx * M_SIZE*100 + M_SIZE*XPOS;
-    uint16_t y1 = sy * M_SIZE*100 + M_SIZE*YPOS;
+    uint16_t x0 = sx * (M_SIZE*100 + tl) + M_SIZE*xpos;
+    uint16_t y0 = sy * (M_SIZE*100 + tl) + M_SIZE*ypos;
+    uint16_t x1 = sx * M_SIZE*100 + M_SIZE*xpos;
+    uint16_t y1 = sy * M_SIZE*100 + M_SIZE*ypos;
 
     // Coordinates of next tick for zone fill
     float sx2 = cos((i + tickSpasing - 90) * 0.0174532925);
     float sy2 = sin((i + tickSpasing - 90) * 0.0174532925);
-    int x2 = sx2 * (M_SIZE*100 + tl) + M_SIZE*XPOS;
-    int y2 = sy2 * (M_SIZE*100 + tl) + M_SIZE*YPOS;
-    int x3 = sx2 * M_SIZE*100 + M_SIZE*XPOS;
-    int y3 = sy2 * M_SIZE*100 + M_SIZE*YPOS;
+    int x2 = sx2 * (M_SIZE*100 + tl) + M_SIZE*xpos;
+    int y2 = sy2 * (M_SIZE*100 + tl) + M_SIZE*ypos;
+    int x3 = sx2 * M_SIZE*100 + M_SIZE*xpos;
+    int y3 = sy2 * M_SIZE*100 + M_SIZE*ypos;
 
 
     // Short scale tick length
     if (i % 25 != 0) tl = 8;
 
     // Recalculate coords incase tick lenght changed
-    x0 = sx * (M_SIZE*100 + tl) + M_SIZE*XPOS;
-    y0 = sy * (M_SIZE*100 + tl) + M_SIZE*YPOS;
-    x1 = sx * M_SIZE*100 + M_SIZE*XPOS;
-    y1 = sy * M_SIZE*100 + M_SIZE*YPOS;
+    x0 = sx * (M_SIZE*100 + tl) + M_SIZE*xpos;
+    y0 = sy * (M_SIZE*100 + tl) + M_SIZE*ypos;
+    x1 = sx * M_SIZE*100 + M_SIZE*xpos;
+    y1 = sy * M_SIZE*100 + M_SIZE*ypos;
 
     // Draw tick
     tft.drawLine(x0, y0, x1, y1, SCALE_COLOR);
@@ -319,8 +322,8 @@ void analogMeter(TFT_eSprite &tft,String label1,String label2,float val1)
     // Check if labels should be drawn, with position tweaks
     if (i % 10 == 0) {
       // Calculate label positions
-      x0 = sx * (M_SIZE*100 + tl + 10) + M_SIZE*XPOS;
-      y0 = sy * (M_SIZE*100 + tl + 10) + M_SIZE*YPOS;
+      x0 = sx * (M_SIZE*100 + tl + 10) + M_SIZE*xpos;
+      y0 = sy * (M_SIZE*100 + tl + 10) + M_SIZE*ypos;
       tft.drawCentreString(String(nLabel), x0+4, y0-4, 1); 
       nLabel+=nLabelI;
       }
@@ -328,23 +331,23 @@ void analogMeter(TFT_eSprite &tft,String label1,String label2,float val1)
     // Now draw the arc of the scale
     //sx = cos((i + tickSpasing - 90) * 0.0174532925);
     //sy = sin((i + tickSpasing - 90) * 0.0174532925);
-    x0 = sx2 * M_SIZE*100 + M_SIZE*XPOS;
-    y0 = sy2 * M_SIZE*100 + M_SIZE*YPOS;
+    x0 = sx2 * M_SIZE*100 + M_SIZE*xpos;
+    y0 = sy2 * M_SIZE*100 + M_SIZE*ypos;
     // Draw scale arc, don't draw the last part
     if (i < arcEnd) tft.drawLine(x0, y0, x1, y1, SCALE_COLOR);
   };
-  TFTShape w=TFTShapeBuilder::buildAnnularWedge(32,M_SIZE*80,M_SIZE*100,arcStart,45);
-  w.fillDrawH(&tft, M_SIZE*XPOS,M_SIZE*YPOS,TFT_GREEN,TFT_GREEN,1);
-  //drawarc(tft,M_SIZE*XPOS,M_SIZE*YPOS,M_SIZE*100, -100, 70, 8,TFT_GREEN);
+  TFTShape w=TFTShapeBuilder::buildAnnularWedge(32,M_SIZE*80,M_SIZE*100,arcStart,0);
+  w.fillDrawH(&tft, M_SIZE*xpos,M_SIZE*ypos,TFT_GREEN,TFT_GREEN,1);
+  //drawarc(tft,M_SIZE*xpos,M_SIZE*ypos,M_SIZE*100, -100, 70, 8,TFT_GREEN);
  // tft.drawString("%RH", M_SIZE*(3 + 230 - 40), M_SIZE*(119 - 20), 2); // Units at bottom right
-  tft.drawCentreString(label1, M_SIZE*XPOS, M_SIZE*YPOS-5, 4); // Comment out to avoid font 4
-  tft.drawCentreString(label2, M_SIZE*XPOS, M_SIZE*YPOS+20, 4); // Comment out to avoid font 4
+  tft.drawCentreString(label1, M_SIZE*xpos, M_SIZE*ypos-5, 4); // Comment out to avoid font 4
+  tft.drawCentreString(label2, M_SIZE*xpos, M_SIZE*ypos+20, 4); // Comment out to avoid font 4
   //tft.drawRect(1, M_SIZE*3, M_SIZE*236, M_SIZE*126, TFT_BLACK); // Draw bezel line
 
- // plotNeedle(tft,0, 0); // Put meter needle at 0
+   plotNeedle(tft,0, 0); // Put meter needle at 0
 }
 
-void drawarc(TFT_eSprite &tft,int x,int y, int r,int arcStart,int arcEnd,int w,uint16_t color)
+void analogGauge::drawarc(TFT_eSprite &tft,int x,int y, int r,int arcStart,int arcEnd,int w,uint16_t color)
 {
   int a=arcStart;
   int a1=arcStart;
@@ -384,7 +387,7 @@ void drawarc(TFT_eSprite &tft,int x,int y, int r,int arcStart,int arcEnd,int w,u
 // Smaller values OK if text not in sweep area, zero for instant movement but
 // does not look realistic... (note: 100 increments for full scale deflection)
 // #########################################################################
-void plotNeedle(TFT_eSprite &tft,int value, byte ms_delay)
+void analogGauge::plotNeedle(TFT_eSprite &tft,int value, byte ms_delay)
 {
   tft.setTextColor(TFT_BLACK, TFT_WHITE);
   char buf[8]; dtostrf(value, 4, 0, buf);

@@ -22,7 +22,8 @@ bool Bms_::init() {
   bmsOk = ReadEeprom();
   int cells = 13;
   cellNumber = oz890Eeprom[0x26] & 0x0f;
-  cellNumber = 13;
+  //cellNumber = 13;
+  numCell=cellNumber;
   senseResistor = oz890Eeprom[0x34];
   if (senseResistor == 0) senseResistor = 25; // 25 mOhm
   
@@ -185,10 +186,16 @@ void Bms_::readBms() {
   errorStatus = getRegister(0x1c);
   fetEnable = getRegister(0x1e);
   fetDisable = getRegister(0x1f);
-  ll = LogLine(vTot, current, Ah, shutdownStatus<<16+errorStatus<<8+fetDisable,0.0, &cellVoltages[0], lasttime);
-  LogFile.addLogLine(&ll);
-  Serial.println(ll.toString());
-
+  int status=shutdownStatus<<16+errorStatus<<8+fetDisable;
+  //ll = LogLine(vTot, current, Ah, shutdownStatus<<16+errorStatus<<8+fetDisable,0.0, &cellVoltages[0], lasttime);
+  ll = LogLine(vTot, current, Ah, remCap,chargePersentage,capacityEst, status, numCell, &cellVoltages[0], ms,ms/1000);
+  if(!combinedll.isValid()) combinedll=ll;
+  if((lastLogTime+chargeLogInterval<ttime && current>0.2 )|| (lastLogTime+dischargeLogInterval<ttime  && current<-0.2) || lastLogTime+idleLogInterval<ttime)
+    {
+    LogFile.addLogLine(&combinedll);
+    combinedll=ll;
+    lastLogTime=ll.t;
+  } else combinedll.combine(ll);
 
 
   /* if(logptr>=LOGSIZE) logptr=0;

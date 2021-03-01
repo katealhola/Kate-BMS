@@ -10,7 +10,8 @@
 #include "logline.h"
 
 #define NFILES 4
-#define ITEMS_PER_LOGFILE 1000
+#define ITEMS_PER_LOGFILE 5000
+#define SYNCSEQ 0xfeedc0de
 
 class logF {
     public:
@@ -33,11 +34,13 @@ class LogFile_ {
     int logFileIndex; // in files array
     int logFileSeq;
     LogFile_();
+    void init();
     void addLogLine(LogLine *ll);
     void scanLogFiles();
     int addLogFile(logF l);
     void newLogFile();
     void clearLog();
+    void clearAllLogFiles();
     String toJson();
     int getLogFileIndexFromSeq(int seq);
     LogLine getLogLineAt(int &index,File &f);

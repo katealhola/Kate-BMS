@@ -37,6 +37,7 @@ class Bms_  {
 
     double vTot=0;
     double Ah=0;
+    uint8_t numCell; // Number of cells in use
 
     float minVolt,maxVolt;
     int minCell,maxCell;
@@ -62,6 +63,7 @@ class Bms_  {
     uint8_t readeeprom=0; // Flag to trigger read eeprom
     uint8_t clearlog=0;
     LogLine ll;
+    LogLine combinedll;
 
 
     uint16_t logptr;

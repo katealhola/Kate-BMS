@@ -20,8 +20,12 @@ public:
   void batt(WiFiClient &client) ;
   void setParameter(WiFiClient &client,String urlLine);
   void clearLogFile(WiFiClient &client);
+  void serveWifiSetupPage(WiFiClient& client);
+  void serveMqtt(WiFiClient& client, String req);
+  void serveSetMqtt(WiFiClient& client, String req);
+
   
-#ifdef OZ890BMS
+#ifdef O890BMS
   void raweeprom(WiFiClient &client);
   void eeprom(WiFiClient &client);
   void readEeprom(WiFiClient &client);
@@ -34,6 +38,7 @@ public:
   String parameter(String name,int reg,String comment,String value);
   int getIntParam(String urlLine,String paramName,int defval);
   String getStringParam(String urlLine,String paramName,String defval);
+  bool setStringIfStartsWith(String& s, String startswith, String& set);
 
   void WifiLoop();
 };

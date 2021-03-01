@@ -52,3 +52,17 @@ String ConfigFile::toString()
   return(s);
 }
 
+String ConfigFile::getApSsid(){};
+  void ConfigFile::setApSsid(){};
+  String ConfigFile::getApPasswd(){};
+  void ConfigFile::setApPasswd(){};
+  void ConfigFile::setMqttPort(int){};
+  int ConfigFile::getMqttPort(){};
+  void ConfigFile::setDeviceName(String){};
+  String ConfigFile::getDeviceName(){};
+  void ConfigFile::setMqttUser(String){};
+  String ConfigFile::getMqttUser(){};
+  void ConfigFile::setMqttPassword(String){};
+  String ConfigFile::getMqttPassword(){};
+  void ConfigFile::setMqttServer(String){};
+  String ConfigFile::getMqttServer(String){};

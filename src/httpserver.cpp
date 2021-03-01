@@ -7,6 +7,7 @@
 extern ConfigFile configFile;
 
 WiFiServer server(80);
+String getNextToken(String& s, int& offset);
 
 void HttpServer::begin()
 {
@@ -38,9 +39,16 @@ void HttpServer::WifiLoop()
             // and a content-type so the client knows what's coming, then a blank line:
             Serial.println("Handling request:"+urlLine);
             client.println("HTTP/1.1 200 OK");
-            client.println("Content-Type: application/json; charset=utf-8");
             client.println("Access-Control-Allow-Origin:*");
-            client.println();
+            if (urlLine.startsWith("GET /getfile")) {
+              client.println("Content-Type: application/octet-stream");
+              client.println();
+              String fileName=getStringParam(urlLine,"file=",String(""));
+              getFile(client,fileName,true);
+            } else {
+              client.println("Content-Type: application/json; charset=utf-8");
+              client.println();
+            }
 #ifdef ANTBMS
             if (urlLine.startsWith("GET /antframe")) antFrame(client);  
 #endif
@@ -54,10 +62,7 @@ void HttpServer::WifiLoop()
             if (urlLine.startsWith("GET /config")) getConfig(client);                 
            
             if (urlLine.startsWith("GET /dir")) listDir(client);
-            if (urlLine.startsWith("GET /getfile")) {
-              String fileName=getStringParam(urlLine,"file=",String(""));
-              getFile(client,fileName,true);
-            }
+            
             if (urlLine.startsWith("GET /clearlog")) clearLogFile(client);
             if (urlLine.startsWith("GET /logfile")) {
               int from=getIntParam(urlLine,"from=",-100);
@@ -97,45 +102,52 @@ void HttpServer::WifiLoop()
 
 void HttpServer::getLogFile(WiFiClient &client,int offset,int nlines,int combine)
 {
-  
   LogLine ll;
   int lines=0;
   String s;
   File f;
   
   ll=LogFile.getLogLineAt(offset,f);
-  Serial.println("- read from file:"+String(f.name())+" len:"+String(f.size())+"loglines:"+String(f.size()/sizeof(ll))+" from="+String(offset)+" nlines="+String(nlines)+" combine="+String(combine));
+  Serial.println("- read from file:"+String(f.name())+" len:"+String(f.size())+"loglines:"+String(f.size()/sizeof(ll))+" from="+String(offset)+" nlines="+String(nlines)+" combine="+String(combine)+" valid="+String(ll.isValid()));
+  Serial.println(ll.toString());
   client.print("{\"data\":[");
-  while(f  &&  ll.isValid() && nlines-- ) {
+  while(f  &&  ll.isValid()) {
+        if(s.length()>0) client.println(",");
         s=ll.toJson();
-        if(s.length()>0) s+=",";
-        client.println(s);
+        client.print(s);
       /*  do { // Re-sync
           int n=file.read((uint8_t*)&ll,sizeof(ll));
           if(n==sizeof(ll) && !ll.isValid()) file.seek(1-sizeof(ll),SeekCur);
           if(n!=sizeof(ll)) nlines=0; // No more to read
         }
         while(file.available() && !ll.isValid() && nlines);*/
-        Serial.println(ll.toString()+" f="+String(f.position()));
+        Serial.println(String(offset)+" f="+String(f.position())+" "+ll.toJson());
         ll=LogFile.getLogLineAt(offset,f);
     };
-    s+="]}";
-    client.println(s);
+    client.println("]}");
 }
 
 void HttpServer::getFile(WiFiClient &client,String fileName,bool textMode)
 {
   LogLine ll;
   int lines=0;
+  int n;
   String s;
+  uint8_t buf[128];
   File file = SPIFFS.open(fileName);
     if(!file || file.isDirectory()){
         Serial.println("- failed to open file for reading");
         return;
     }
-    while(file.available()){
+    /*while(file.available()){
          s=file.readStringUntil('\n');
          client.println(s);     
+    };*/
+    n=1;
+    while(file.available()){
+         n=file.read((unsigned char*)&buf,128);
+        
+         client.write_P((const char*)buf,n);     
     };
 }
 
@@ -361,6 +373,134 @@ String HttpServer::getStringParam(String urlLine,String paramName,String defval)
  }
  return res;
 }
+
+void HttpServer::serveWifiSetupPage(WiFiClient& client)
+{
+  String s = "";
+  //appendHttp200(s);
+
+  //This thing was automatically generated from html source
+  s += F("<div><H1>Wifi Setup</H1></div>\r\n<div id=\"id01\">Searching for networks...</div>\r\n</html>\r\n\r\n");
+  s += F("<script>\r\n\tvar xmlhttp = new XMLHttpRequest();\r\n\tvar url = \"aplist.json\";\r\n\r\n\txmlhttp.onreadystatechange = function() {\r\n");
+  s += F("\t\tif (xmlhttp.readyState == 4 && xmlhttp.status == 200) {\r\n\t\t\tvar myArr = JSON.parse(xmlhttp.responseText);\r\n\t\t\tmyFunction(myArr);");
+  s += F("\r\n\t\t}\r\n\t}\r\n\txmlhttp.open(\"GET\", url, true);\r\n\txmlhttp.send();\r\n\r\n\tfunction myFunction(arr) {\r\n");
+  s += F("\t\tvar out = \"<fieldset><legend>WiFi Network to connect to</legend>\";\r\n\t\tout += '<form action=setap method=GET><table style=\"width:80%\">';\r\n\t\tvar i;\r\n");
+  s += F("\t\tfor(i = 0; i < arr.length; i++) \r\n\t\t{\r\n\t\t\tout += '<tr><td align=right><input type=radio name=ssid id=\"s' + i + '\" value=\"' + arr[i].n + '\"/></td>' \r\n");
+  s += F("\t\t\t\t+ '<td><label for=s' + i + '>' + arr[i].n + ' (' + arr[i].r + 'db)</label></td>'\r\n\t\t\t\t+ '</tr>';\r\n\t\t}\r\n");
+  //s += F("\t\tout += \"<tr><td align=right><input type=radio name=ssid id=sc value=''></td><td><input type=text value='Custom SSID' onfocus='document.getElementById(sc).checked=true'></input></input></td></tr>\";\r\n");
+  s += F("\t\tout += \"<tr><td><br></td></tr>\"\r\n\t\tout += \"<tr><td width=1 align=right>Password:</td><td><input type=text name=pass></input></td></tr>\"\r\n\t\tout += \"<tr><td><br></td></tr>\"\r\n");
+  s += F("\t\tout += \"<tr><td></td><td>Note: Password is sent over plaintext, only use on secure network.</td></tr>\"\r\n\t\tout += \"<tr><td></td><td><input type=submit value='Submit'/></td></tr>\"\r\n\t\t");
+  s += F("\t\tout += '</table></form>'\r\n\t\tdocument.getElementById(\"id01\").innerHTML = out;\r\n\t}\r\n</script>");
+
+  client.print(s);
+  
+}
+
+//MQTT and device name
+void HttpServer::serveMqtt(WiFiClient& client, String req)
+{
+  String s = "";
+ // appendHttp200(s);
+
+  //This thing was automatically generated from html source
+  s += F("<H1>MQTT server & device name</H1></html>\r\n\r\n");
+
+  s += F("<form action=setmqtt>");
+  s += F("<table>");
+  s += F("<tr><td><b>Setting</b></td><td><b>Value Key</b></td></tr>");
+  s += F("<tr><td>Mqtt Server</td><td><input type=text name=w width=20 value='");
+  //s += _settings._mqttServer;
+  s += F("'></td><td><input type=text name=r width=20 value='");
+  //s += _settings._mqttPort;
+  s += F("'></td></tr>");
+  s += F("<tr><td>Mqtt User/pass</td><td><input type=text name=u width=20 value='");
+ // s += _settings._mqttUser;
+  s += F("'></td><td><input type=text name=p width=20 value='");
+  //s += _settings._mqttPassword;
+  s += F("'></td></tr>");
+  
+  s += F("<tr><td>Device type (MPI, PCM, PIP)</td><td><input type=text name=t width=20 value='");
+  //s += _settings._deviceType;
+  s += F("'></td></tr>");
+  
+  s += F("<tr><td>Device Name</td><td><input type=text name=n width=20 value='");
+  //s += _settings._deviceName;
+  s += F("'></td></tr>");
+  
+  s += F("<tr><td><br></td></tr>");
+  
+  s += F("<tr><td>Update rate</td><td><input type=text name=i width=5 value='");
+ //s += String(_settings._mqttPort);
+  s += F("'></td><td>seconds</td></tr>");
+
+  s += F("<tr><td></td><td></td><td><input type=submit value='    Save Settings   '></td></tr>");
+  s += F("</table></form>");
+  s += F("</html>\r\n\r\n");  
+  client.print(s);
+  
+}
+
+bool HttpServer::setStringIfStartsWith(String& s, String startswith, String& set)
+{
+  /*Serial1.print("  checking if ");
+  Serial1.print(s);
+  Serial1.print(" startswith ");
+  Serial1.println(startswith);*/
+
+  if (s.startsWith(startswith))
+  {
+    set = s.substring(startswith.length());
+    Serial1.print("match >");
+    Serial1.print(startswith);
+    Serial1.print("< = >");
+    Serial1.print(set);
+    Serial1.println("<");
+    return true;
+  }
+  return false;
+}
+
+String getNextToken(String& s, int& offset)
+{
+  char c;
+  String result = "";
+  do {
+    c = s[offset];
+    ++offset;  
+    if ((c != 0) && (c != '&') && (c != '?') && (c != ' ') && (c != '\r') && (c != '\n'))
+    {
+      result += c;
+    }
+    else { return result; }
+  } while(offset < s.length());
+  return result;
+}
+
+//Apply mqtt settings
+void HttpServer::serveSetMqtt(WiFiClient& client, String req)
+{
+  String s = "";
+
+  Serial1.println("Setting MQTT & Device keys");
+  Serial1.println(req);
+
+  int offset = 0;
+  String token = getNextToken(req, offset);
+
+  while (token.length())
+  {    
+    if(setStringIfStartsWith(token, "w=", s)) configFile.setMqttServer(s);
+    //setStringIfStartsWith(token, "r=", _settings._mqttPort);
+    if(setStringIfStartsWith(token, "n=", s)) configFile.setDeviceName(s);
+    if(setStringIfStartsWith(token, "u=", s)) configFile.setMqttUser(s);
+    if(setStringIfStartsWith(token, "p=", s)) configFile.setMqttPassword(s);
+    if (setStringIfStartsWith(token, "r=", s))
+      configFile.setMqttPort((short)s.toInt());
+         
+    token = getNextToken(req, offset);
+  }
+}
+
 
 void HttpServer::listDir(WiFiClient &client,String prefix,const char * dirname, uint8_t levels){
     Serial.printf("Listing directory: %s\r\n", dirname);
