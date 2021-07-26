@@ -2,44 +2,49 @@
 #define _HTTPSERVER_H_
 #include <Arduino.h>
 #include <WiFi.h>
+#include <WebServer.h>
 
 
 
 
 class HttpServer{
+  
 
 
 public:
   void begin();
   
-  void listDir(WiFiClient &client,String prefix,const char * dirname, uint8_t levels);
-  void getLogFile(WiFiClient &client,int offset,int nlines,int combine);
-  void getFile(WiFiClient &client,String fileName,bool textMode);
-  void listDir(WiFiClient &client);
-  void getConfig(WiFiClient &client);
-  void batt(WiFiClient &client) ;
-  void setParameter(WiFiClient &client,String urlLine);
-  void clearLogFile(WiFiClient &client);
-  void serveWifiSetupPage(WiFiClient& client);
-  void serveMqtt(WiFiClient& client, String req);
-  void serveSetMqtt(WiFiClient& client, String req);
+  static String listDir(String prefix,const char * dirname, uint8_t levels);
+  static void getLogFile();
+  static void getFile();
+  static void listDir();
+  static void getConfig();
+  static void batt() ;
+  static void setParameter();
+  static void clearLogFile();
+  static void serveWifiSetupPage();
+  static void serveMqtt();
+  static void serveSetMqtt();
+  static void aplist();
+  static void logStat();
+  static void serveRoot();
 
   
 #ifdef O890BMS
-  void raweeprom(WiFiClient &client);
-  void eeprom(WiFiClient &client);
-  void readEeprom(WiFiClient &client);
+  static void raweeprom();
+  static void eeprom();
+  static void readEeprom();
 #endif 
 
 #ifdef ANTBMS
-  void antFrame(WiFiClient &client);
+  static void antFrame();
 #endif
-  void logStat(WiFiClient &client);
+  
   String parameter(String name,int reg,String comment,String value);
-  int getIntParam(String urlLine,String paramName,int defval);
+  /*int getIntParam(String urlLine,String paramName,int defval);
   String getStringParam(String urlLine,String paramName,String defval);
   bool setStringIfStartsWith(String& s, String startswith, String& set);
-
+*/
   void WifiLoop();
 };
 

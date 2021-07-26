@@ -102,7 +102,7 @@ int valueToPixels(float val, float minval, float maxval,int maxPixels)
 }
 
 
-void statusDisplay(TFT_eSprite &m )
+int statusDisplay(TFT_eSprite &m )
 {
   int xpos =  0;
   int ypos =  0;
@@ -135,42 +135,83 @@ void statusDisplay(TFT_eSprite &m )
   m.drawString(s, xpos, ypos, GFXFF);  // Draw the text string in the selected GFX free font
   ypos += m.fontHeight(GFXFF);                      // Get the font height and move ypos down
   //m.println(s);
+  #ifdef OZ890
   if(Bms.shutdownStatus!=0 || Bms.errorStatus!=0 || Bms.fetEnable!=0 || Bms.fetDisable!=0) {
     s = "s=" + String(Bms.shutdownStatus, 16) + " e=" + String(Bms.errorStatus, 16) + " n=" + String(Bms.fetEnable, 16) + " d=" + String(Bms.fetDisable, 16);
     m.drawString(s, xpos, ypos, GFXFF);  // Draw the text string in the selected GFX free font
-  ypos += m.fontHeight(GFXFF);                      // Get the font height and move ypos down
+    ypos += m.fontHeight(GFXFF);                      // Get the font height and move ypos down
+
     //m.println(s);
   }
-
+  #endif
+  return ypos;
 }
 
 
-void barplot(TFT_eSprite &m )
+int barplot(TFT_eSprite &m )
 {
   float plotmin=2.4;
+  float cellMin=5.0;
+  float cellMax=0.0;
+  unsigned int cellMaxI=0;
+  unsigned int cellMinI=0;
+  int fh;
+  int pix;
   
   
   m.fillRect(0, 0, m.width() - 1, m.height() - 1, TFT_BLACK);
   m.setFreeFont(FM9);
   for (int i = 0; i < 12; i++) {
     float v=4.4 - i * 0.2;
-    int pix=valueToPixels(v,4.4,plotmin,m.height());
+    pix=valueToPixels(v,4.4,plotmin,m.height());
     if(i>0 && !(i&1)) m.drawString(String(v, 1), 0, pix-5);
     if(i>0)m.drawLine(40, m.height()-pix , m.width(), m.height()-pix,TFT_WHITE);
   }
-  int w=Bms.numCell ? 180/Bms.numCell:13;
+  int w=180/(Bms.numCell ? Bms.numCell:13);
+
+  for(int i=0;i<Bms.numCell;i++) {
+    float v=Bms.cellVoltages[i] / 1000.0;
+    if(v>cellMax) {
+      cellMax=v;
+      cellMaxI=i;
+    }
+    if(v<cellMin) {
+      cellMin=v;
+      cellMinI=i;
+    }
+  }
+
   for(int i=0;i<Bms.numCell;i++) {
     float v=Bms.cellVoltages[i] / 1000.0;
     float idleV=Bms.idleCellVoltages[i] / 1000.0;
     float minV=Bms.minCellVoltages[i] / 1000.0;
-    int pix=valueToPixels(v,4.4,plotmin,m.height());
+    pix=valueToPixels(v,4.4,plotmin,m.height());
     int minPix=valueToPixels(minV,4.4,plotmin,m.height());
     int idlePix=valueToPixels(idleV,4.4,plotmin,m.height());
-    m.fillRect(i*w+60,pix,w-4,m.height()-pix,TFT_GREEN);
+    int color=TFT_GREEN;
+    if(i==cellMaxI) color=TFT_GREENYELLOW;
+    if(i==cellMinI) color=0x5E0;
+    m.fillRect(i*w+60,pix,w-4,m.height()-pix,color);
     m.fillRect(i*w+58,minPix,w+1,4,TFT_WHITE);
     //String s=String(i)+" "+String(valueToPixels(v,4.4,3.0,m.height()))+","+String(i*w+60)+" v="+String(v,2);
     //Serial.println(s);
   }
+
+  int labelw=55;
+  m.setFreeFont(FMB9);
+  fh=m.fontHeight(GFXFF);  
+  pix=valueToPixels(cellMax,4.4,plotmin,m.height());
+  m.fillRect(0,pix-(fh),labelw,(fh),TFT_BLACK);
+  m.drawRect(0,pix-(fh),labelw,(fh),TFT_WHITE);
+  m.drawLine(10, pix-1 , 45, pix,TFT_WHITE);
+  m.drawString(String(cellMax, 3), 0, pix-fh);
+
+  pix=valueToPixels(cellMin,4.4,plotmin,m.height());
+  m.fillRect(0,pix,labelw,fh,TFT_BLACK);
+  m.drawLine(10, pix , labelw, pix,TFT_WHITE);
+  m.drawRect(0,pix,labelw,fh,TFT_WHITE);
+  m.drawString(String(cellMin, 3), 0, pix);
+  return m.height() - 1;
 }
 
 
@@ -244,15 +285,17 @@ TFT_eSprite m = TFT_eSprite(&display);
     m.pushSprite(0, 0);
     m.deleteSprite();
 
-     m.createSprite(display.width(), 128);
+    m.createSprite(display.width(), 128);
     m.fillSprite(TFT_BLACK);
     barplot(m);
     m.pushSprite(0, 200);
     m.fillSprite(TFT_BLUE);
     String s1 = String(Bms.vTot, 2) + "V ";
     String s2 = String(Bms.current, 2) + "A ";
+  #if 0
     gauge->drawGauge(m,s1,s2,Bms.current);
     m.pushSprite(0,70);
+  #endif
     m.deleteSprite();
     #endif
     delay(200);

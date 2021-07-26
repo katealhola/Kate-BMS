@@ -35,6 +35,10 @@ class Bms_  {
     int n; 
     double espBatV;
 
+    // From configFile
+    float cellFullVolt;
+    float cellEmptyVolt;
+
     double vTot=0;
     double Ah=0;
     uint8_t numCell; // Number of cells in use
@@ -42,17 +46,15 @@ class Bms_  {
     float minVolt,maxVolt;
     int minCell,maxCell;
 
-    // O>890 Eeprom
-     uint16_t correction[12];
-    uint8_t oz890Eeprom[128];
-
-// OZ890 runtime regs
     MedianFilter<int, 3> cellVoltFlts[NUM_CELL_MAX];
     MedianFilter<int, 3> currentFltr;
      uint16_t cellVoltages[NUM_CELL_MAX];
      uint16_t minCellVoltages[NUM_CELL_MAX];
      uint16_t idleCellVoltages[NUM_CELL_MAX];
     double current;
+    
+
+// OZ890 runtime regs
     uint8_t cellNumber; // cellNumberReg 0x06
     uint8_t shutdownStatus; // shutDownRegister // 0x15
     uint8_t errorStatus;  // CheckYesRegister 0x1c
@@ -61,6 +63,10 @@ class Bms_  {
     uint8_t senseResistor; // Current sense resistor 0x34
     uint8_t progeeprom=0; // Flag to trigger program eeprom
     uint8_t readeeprom=0; // Flag to trigger read eeprom
+   // Oz890 Eeprom
+     uint16_t correction[12];
+    uint8_t oz890Eeprom[128];
+    
     uint8_t clearlog=0;
     LogLine ll;
     LogLine combinedll;

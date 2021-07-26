@@ -106,7 +106,7 @@ String LogLine::toJson()
   s += "\"chrgP\":" + String(chargePersentage, 0) + ",";
   s += "\"capEst\":" + String(capacityEstimate) + ",";
   s += "\"ncell\":" + String(numCell) + ",";
-  s + "\"cell\":[";
+  s += "\"cell\":[";
   int n=numCell<NUMOFCELL && numCell>0?numCell:NUMOFCELL;
   for (int i = 0; i < n; i++)
   {

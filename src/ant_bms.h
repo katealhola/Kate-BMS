@@ -79,19 +79,23 @@ public:
   bool bmsOk;
   byte val1, val2, stat1, stat2;
   bool first = true;
-  long lasttime;
-  long lastLogTime;
-  int  dischargeLogInterval;
-  int  chargeLogInterval;
-  int  idleLogInterval;
-  long logInterval;
-  long lastReadMs;
+  unsigned long lasttime,lastLogTime,lastMqttTime,lastt;
+  unsigned long dischargeLogInterval;
+  unsigned long chargeLogInterval;
+  unsigned long idleLogInterval;
+  unsigned long logInterval;
+  unsigned long mqttInterval;
+  unsigned long lastReadMs;
   int  n;
   double espBatV;
 
   double vTot = 0;
   double Ah = 0;
   uint8_t numCell; // Number of cells in use
+  // From configFile
+    float cellFullVolt;
+    float cellEmptyVolt;
+
 
   float minVolt, maxVolt;
   int minCell, maxCell;
@@ -102,6 +106,9 @@ public:
   uint16_t minCellVoltages[NUM_CELL_MAX];
   uint16_t idleCellVoltages[NUM_CELL_MAX];
   double current;
+
+  // Deprecated
+  #if 0
   uint8_t cellNumber;     // cellNumberReg 0x06
   uint8_t shutdownStatus; // shutDownRegister // 0x15
   uint8_t errorStatus;    // CheckYesRegister 0x1c
@@ -110,6 +117,7 @@ public:
   uint8_t senseResistor;  // Current sense resistor 0x34
   uint8_t progeeprom = 0; // Flag to trigger program eeprom
   uint8_t readeeprom = 0; // Flag to trigger read eeprom
+  #endif
   uint8_t clearlog = 0;
   LogLine ll;
   LogLine combinedll;

@@ -5,6 +5,10 @@
 #include "localcredentials.h"
 #endif
 
+#if __has_include("localdefaultconfigfile.h") 
+#include "localdefaultconfigfile.h"
+#endif
+
 
 //#define OLED
 //#define TFT
@@ -58,11 +62,19 @@
 #ifndef DEFAULT_PASSWORD
 #define DEFAULT_PASSWORD "KateBms"
 #endif
+#ifndef DEFAULT_MQTT_SERVER "192.168.1.5"
+#define DEFAULT_MQTT_SERVER "192.168.1.5"
+#endif
 #define LOGFILE "/battery.log"
 #define CONFIGFILE "/config.json"
-#define DEFAULTCONFIG "{'ClientSsid':'$DEFAULT_SSID ','ClientPassword':'$DEFAULT_PASSWORD'}"
+#ifndef DEFAULTCONFIG
+#define DEFAULTCONFIG "{'ClientSsid':'KattiMesh','DeviceName':'KateBMS','MqttServer':'192.168.1.5','CellFullVolt':'4.10'}"
+#endif
 #define CLIENTSSID "ClientSsid"
 #define CLIENTPASSWORD "ClientPassword"
+#define DEFAULT_AP_SSID "KateBms"
+#define DEFAULT_AP_PASSWORD ""
+
 
 
 

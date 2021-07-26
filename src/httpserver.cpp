@@ -6,12 +6,28 @@
 
 extern ConfigFile configFile;
 
-WiFiServer server(80);
+//WiFiServer server(80);
+WebServer server(80);
+
 String getNextToken(String& s, int& offset);
 
 void HttpServer::begin()
 {
   server.begin();
+  server.on("/", serveRoot); 
+  server.on("/antframe", antFrame); 
+  server.on("/logStatus",logStat);  
+  server.on("/config",getConfig);                      
+  server.on("/dir",static_cast<void (*)()>(listDir));           
+  server.on("/clearlog",clearLogFile);  
+  server.on("/batt",batt);
+  server.on("/setupmqtt",serveMqtt);
+  server.on("/setmqtt",serveSetMqtt);
+  server.on("/setupwifi",serveWifiSetupPage);
+  server.on("/aplist.json",aplist);
+  server.on("/logdata",getLogFile);
+  server.on("/setparameter",setParameter);
+
   
 }
 
@@ -19,6 +35,7 @@ void HttpServer::begin()
 
 void HttpServer::WifiLoop()
 {
+  #if 0
    WiFiClient client = server.available();   // listen for incoming clients
 
   if (client) {                             // if you get a client,
@@ -46,7 +63,8 @@ void HttpServer::WifiLoop()
               String fileName=getStringParam(urlLine,"file=",String(""));
               getFile(client,fileName,true);
             } else {
-              client.println("Content-Type: application/json; charset=utf-8");
+              if (urlLine.startsWith("GET /setup")) client.println("Content-Type: text/html; charset=utf-8");
+              else client.println("Content-Type: application/json; charset=utf-8");
               client.println();
             }
 #ifdef ANTBMS
@@ -71,6 +89,9 @@ void HttpServer::WifiLoop()
               getLogFile(client,from,n,c);
             }
             if (urlLine.startsWith("GET /batt")) batt(client);
+            if (urlLine.startsWith("GET /setupmqtt")) serveMqtt(client,urlLine);
+            if (urlLine.startsWith("GET /setup")) serveWifiSetupPage(client);
+            if (urlLine.startsWith("GET /aplist.json")) aplist(client);
             if (urlLine.startsWith("GET /logdata")) getLogFile(client,-100,100,0);
             if (urlLine.startsWith("GET /setparameter")) {         
                 setParameter(client,urlLine);
@@ -98,23 +119,42 @@ void HttpServer::WifiLoop()
     client.stop();
     Serial.println("Client Disconnected.");
   }
+  #endif
+  server.handleClient();
+  delay(2);//allow the cpu to switch to other tasks
 }
 
-void HttpServer::getLogFile(WiFiClient &client,int offset,int nlines,int combine)
+//void HttpServer::getLogFile(WiFiClient &client,int offset,int nlines,int combine)
+void HttpServer::getLogFile()
+
 {
+  int offset=-1;
+  int nlines=100;
+  int combine=false;
+
+  if(server.hasArg("offset")) offset=server.arg("offset").toInt();
+  if(server.hasArg("nlines")) nlines=server.arg("nlines").toInt();
+
+
   LogLine ll;
   int lines=0;
   String s;
   File f;
+  int first=1;
   
   ll=LogFile.getLogLineAt(offset,f);
   Serial.println("- read from file:"+String(f.name())+" len:"+String(f.size())+"loglines:"+String(f.size()/sizeof(ll))+" from="+String(offset)+" nlines="+String(nlines)+" combine="+String(combine)+" valid="+String(ll.isValid()));
   Serial.println(ll.toString());
-  client.print("{\"data\":[");
+  s="{\"data\":[";
   while(f  &&  ll.isValid()) {
-        if(s.length()>0) client.println(",");
-        s=ll.toJson();
-        client.print(s);
+        if(!first) s+=",";
+        s+=ll.toJson();
+        first=0;
+        if(s.length()>2048) {
+          server.sendContent(s);
+          s="";
+        };
+        
       /*  do { // Re-sync
           int n=file.read((uint8_t*)&ll,sizeof(ll));
           if(n==sizeof(ll) && !ll.isValid()) file.seek(1-sizeof(ll),SeekCur);
@@ -124,12 +164,14 @@ void HttpServer::getLogFile(WiFiClient &client,int offset,int nlines,int combine
         Serial.println(String(offset)+" f="+String(f.position())+" "+ll.toJson());
         ll=LogFile.getLogLineAt(offset,f);
     };
-    client.println("]}");
+    s+="]}";
+    server.sendContent(s);
 }
 
-void HttpServer::getFile(WiFiClient &client,String fileName,bool textMode)
+void HttpServer::getFile()
 {
-  LogLine ll;
+  String fileName=server.arg("fileName");
+  bool textMode;
   int lines=0;
   int n;
   String s;
@@ -143,44 +185,48 @@ void HttpServer::getFile(WiFiClient &client,String fileName,bool textMode)
          s=file.readStringUntil('\n');
          client.println(s);     
     };*/
-    n=1;
-    while(file.available()){
-         n=file.read((unsigned char*)&buf,128);
-        
-         client.write_P((const char*)buf,n);     
-    };
+    
+  String   dataType = "application/octet-stream";
+  
+
+  if (server.streamFile(file, dataType) != file.size()) {
+    Serial.println("Sent less data than expected!");
+  }
+  file.close();
 }
 
 
 
-void HttpServer::listDir(WiFiClient &client)
+void HttpServer::listDir()
 {
-    client.print("{");
-    client.print("\"totalBytes\":"+String(SPIFFS.totalBytes())+",");
-    client.print("\"usedBytes\":"+String(SPIFFS.usedBytes())+",");
-    client.print("\"dir\":[");
-    listDir(client,String("/"),"/",5);
-    client.print("]}");
+  String s;
+    s+="{";
+    s+="\"totalBytes\":"+String(SPIFFS.totalBytes())+",";
+    s+="\"usedBytes\":"+String(SPIFFS.usedBytes())+",";
+    s+="\"dir\":[";
+    s+=listDir(String("/"),"/",5);
+    s+="]}";
+    server.send(200,"application/json",s);
 }
 
-void HttpServer::getConfig(WiFiClient &client)
+void HttpServer::getConfig()
 {
-    client.print(configFile.toString());
+    server.send(200,"application/json",configFile.toString());
 }
 
-void HttpServer::logStat(WiFiClient &client)
+void HttpServer::logStat()
 {
   String s=LogFile.toJson();
   Serial.println(s);
-  client.print(s);
+  server.send(200,"application/json",s);
 };
 
 #ifdef ANTBMS
-void HttpServer::antFrame(WiFiClient &client)
+void HttpServer::antFrame()
 {
   String s=Bms.antFrameToJson();
   Serial.println(s);
-  client.print(s);
+  server.send(200,"application/json",s);
 };
 
 
@@ -188,95 +234,101 @@ void HttpServer::antFrame(WiFiClient &client)
 
 
 #ifdef OZ890BMS
-void HttpServer::raweeprom(WiFiClient &client) {
+void HttpServer::raweeprom() {
    // the content of the HTTP response follows the header:
-            client.print("{\"values\":[");
+   String s;
+             s="{\"values\":[";
             for (int i = 0; i < 128; i++) 
             {
-              client.print(Bms.oz890Eeprom[i]);
-              if(i<128-1)client.print(',');
+              s+=Bms.oz890Eeprom[i]);
+              if(i<128-1)s+=",";
              }
-            client.print("],\n");
-            client.print("\"gain\":1\}");
+             s+="],\n";
+            s+="\"gain\":1\}";
+            server.send(200,"application/json",s);
 }
 
-void HttpServer::readEeprom(WiFiClient &client) {
+void HttpServer::readEeprom() {
     Bms.readeeprom=1;
     int i=10;
+    String s;
     while(i-- && Bms.readeeprom) sleep(1);
    // the content of the HTTP response follows the header:
-            client.print("{\"values\":[");
+            s="{\"values\":[";
             for (int i = 0; i < 128; i++) 
             {
-              client.print(Bms.oz890Eeprom[i]);
-              if(i<128-1)client.print(',');
+              s+=Bms.oz890Eeprom[i]);
+              if(i<128-1)s+=",";
              }
-            client.print("],\n");
-            client.print("\"gain\":1\}");
+            s+="],\n";
+            s+="\"gain\":1\}";
+            server.send(200,"application/json",s);
 }
 
 
 
-void HttpServer::eeprom(WiFiClient &client) {
+void HttpServer::eeprom() {
    // the content of the HTTP response follows the header:
-      client.print("{");
+   String s;
+      s="{";
       
-      client.print("\"parameters\":[");
+      s+="\"parameters\":[";
             for (int i = 0; i < 13; i++) 
             {
-              client.print(parameter("CV"+String(i+1)+"O",i+5,"Cell Voltage offset",String(Bms.oz890Eeprom[i+5]*0.00122,3))+",\n");
+              s+=parameter("CV"+String(i+1)+"O",i+5,"Cell Voltage offset",String(Bms.oz890Eeprom[i+5]*0.00122,3))+",\n";
             }
       
-             client.print(parameter("INTO",2,"InternalTempOffset",String(Bms.oz890Eeprom[2]))+",\n");
-             client.print(parameter("CSO",0x16,"currentOffset",String((int16_t)((uint8_t)Bms.oz890Eeprom[0x16]+(uint8_t)Bms.oz890Eeprom[0x17]*256),6))+",\n");
-             client.print(parameter("SR",0x34,"Current sense resistor",String(Bms.oz890Eeprom[0x34]*0.1,2))+",\n");
-             client.print(parameter("PFR",0x18,"PFRecord","\""+String(Bms.oz890Eeprom[0x18],16)+"\"")+",\n");
-             client.print(parameter("ATE_FRZ",0x25,"ATE_Freeze",String(Bms.oz890Eeprom[0x25]>>7))+",\n");
-             client.print(parameter("CNUM",0x26,"Number of cells",String((uint8_t)Bms.oz890Eeprom[0x26]&0xf))+",\n");
-             client.print(parameter("BTYP",0x26,"Cell type",String((uint8_t)Bms.oz890Eeprom[0x26]&0x30>>4))+",\n");
-             client.print(parameter("COCO",0x03,"Charge over current offset",String(Bms.oz890Eeprom[0x3]&0xf0>>4))+",\n");
-             client.print(parameter("SCO",0x03,"Short circuit offset",String(Bms.oz890Eeprom[0x3]&0xf))+",\n");
-             client.print(parameter("DOCO",0x04,"Discharge over current offset",String(Bms.oz890Eeprom[0x4]&0xf0>>4))+",\n");
-             client.print(parameter("DCTC",0x28,"Discharge state treshold",String(Bms.oz890Eeprom[0x28]&0xe0>>5))+",\n");
-             client.print(parameter("OCCFC",0x28,"Charge overcurrent",String(Bms.oz890Eeprom[0x28]&0x1f))+",\n");
-             client.print(parameter("CCTC",0x29,"Charge state treshold",String(Bms.oz890Eeprom[0x29]&0xc0>>6))+",\n");
-             client.print(parameter("OCCFD",0x29,"Discharge overcurrent",String(Bms.oz890Eeprom[0x29]&0x3f))+",\n");
+             s+=parameter("INTO",2,"InternalTempOffset",String(Bms.oz890Eeprom[2]))+",\n");
+             s+=parameter("CSO",0x16,"currentOffset",String((int16_t)((uint8_t)Bms.oz890Eeprom[0x16]+(uint8_t)Bms.oz890Eeprom[0x17]*256),6))+",\n";
+             s+=parameter("SR",0x34,"Current sense resistor",String(Bms.oz890Eeprom[0x34]*0.1,2))+",\n";
+             s+=parameter("PFR",0x18,"PFRecord","\""+String(Bms.oz890Eeprom[0x18],16)+"\"")+",\n";
+             s+=parameter("ATE_FRZ",0x25,"ATE_Freeze",String(Bms.oz890Eeprom[0x25]>>7))+",\n";
+             s+=parameter("CNUM",0x26,"Number of cells",String((uint8_t)Bms.oz890Eeprom[0x26]&0xf))+",\n";
+             s+=parameter("BTYP",0x26,"Cell type",String((uint8_t)Bms.oz890Eeprom[0x26]&0x30>>4))+",\n";
+             s+=parameter("COCO",0x03,"Charge over current offset",String(Bms.oz890Eeprom[0x3]&0xf0>>4))+",\n";
+             s+=parameter("SCO",0x03,"Short circuit offset",String(Bms.oz890Eeprom[0x3]&0xf))+",\n";
+             s+=parameter("DOCO",0x04,"Discharge over current offset",String(Bms.oz890Eeprom[0x4]&0xf0>>4))+",\n";
+             s+=parameter("DCTC",0x28,"Discharge state treshold",String(Bms.oz890Eeprom[0x28]&0xe0>>5))+",\n";
+             s+=parameter("OCCFC",0x28,"Charge overcurrent",String(Bms.oz890Eeprom[0x28]&0x1f))+",\n";
+             s+=parameter("CCTC",0x29,"Charge state treshold",String(Bms.oz890Eeprom[0x29]&0xc0>>6))+",\n";
+             s+=parameter("OCCFD",0x29,"Discharge overcurrent",String(Bms.oz890Eeprom[0x29]&0x3f))+",\n";
             
-             client.print(parameter("OCDS",0x2a,"overcurrent delay",String(Bms.oz890Eeprom[0x2a]&7))+",\n");
-             client.print(parameter("OCDN",0x2a,"overcurrent delay number",String(Bms.oz890Eeprom[0x2a]>>3))+",\n");
-             client.print(parameter("SCC",0x2b,"Short circuit treshold",String(Bms.oz890Eeprom[0x2b]&0x3f))+",\n");
+             s+=parameter("OCDS",0x2a,"overcurrent delay",String(Bms.oz890Eeprom[0x2a]&7))+",\n";
+             s+=parameter("OCDN",0x2a,"overcurrent delay number",String(Bms.oz890Eeprom[0x2a]>>3))+",\n";
+             s+=parameter("SCC",0x2b,"Short circuit treshold",String(Bms.oz890Eeprom[0x2b]&0x3f))+",\n";
 
              
-             client.print(parameter("SCDN",0x2c,"Short circuit delay number",String((Bms.oz890Eeprom[0x2c]&0xf8)>>3))+",\n");
-             client.print(parameter("SCDS",0x2c,"Short circuit delay unit",String(Bms.oz890Eeprom[0x2c]&7))+",\n");
+             s+=parameter("SCDN",0x2c,"Short circuit delay number",String((Bms.oz890Eeprom[0x2c]&0xf8)>>3))+",\n";
+             s+=parameter("SCDS",0x2c,"Short circuit delay unit",String(Bms.oz890Eeprom[0x2c]&7))+",\n";
 
-             client.print(parameter("NO_ER_DSPL",0x2d,"Disable the error display",String(Bms.oz890Eeprom[0x2d]&0x80>>7))+",\n");
-             client.print(parameter("IDL_NLD_ENB",0x2d,"Idle bleeding enable",String(Bms.oz890Eeprom[0x2d]&0x40>>6))+",\n");
-             client.print(parameter("DOCRC",0x2d,"Discharge OC release time",String(Bms.oz890Eeprom[0x2d]&0x38>>3))+",\n");
-             client.print(parameter("COCRC",0x2d,"Charge OC release time",String(Bms.oz890Eeprom[0x2d]&7))+",\n");
+             s+=parameter("NO_ER_DSPL",0x2d,"Disable the error display",String(Bms.oz890Eeprom[0x2d]&0x80>>7))+",\n";
+             s+=parameter("IDL_NLD_ENB",0x2d,"Idle bleeding enable",String(Bms.oz890Eeprom[0x2d]&0x40>>6))+",\n";
+             s+=parameter("DOCRC",0x2d,"Discharge OC release time",String(Bms.oz890Eeprom[0x2d]&0x38>>3))+",\n";
+             s+=parameter("COCRC",0x2d,"Charge OC release time",String(Bms.oz890Eeprom[0x2d]&7))+",\n";
              
-             client.print(parameter("I2CADDR",0x30,"i2caddress ",String(Bms.oz890Eeprom[0x30]&15))+",\n");
-             client.print(parameter("PEC_ENB",0x30,"i2 packet error check ",String(Bms.oz890Eeprom[0x30]&0x10))+",\n");
-             client.print(parameter("SCRC",0x30,"short circuit reset delay",String(Bms.oz890Eeprom[0x30]>>5))+",\n");
+             s+=parameter("I2CADDR",0x30,"i2caddress ",String(Bms.oz890Eeprom[0x30]&15))+",\n";
+             s+=parameter("PEC_ENB",0x30,"i2 packet error check ",String(Bms.oz890Eeprom[0x30]&0x10))+",\n";
+             s+=parameter("SCRC",0x30,"short circuit reset delay",String(Bms.oz890Eeprom[0x30]>>5))+",\n";
 
-             client.print(parameter("BCNC",0x30,"Maximum bleeding cell number (+1) 0x03",String(Bms.oz890Eeprom[0x33]&3))+",\n");
+             s+=parameter("BCNC",0x30,"Maximum bleeding cell number (+1) 0x03",String(Bms.oz890Eeprom[0x33]&3))+",\n";
 
              
-             client.print(parameter("BCNC",0x33,"Maximum bleeding cell number (+1) 0x03",String(Bms.oz890Eeprom[0x33]&3))+",\n");
-             client.print(parameter("SEB",0x33,"Select external bleeding 0x04",String(Bms.oz890Eeprom[0x33]>>4&1))+",\n");
-             client.print(parameter("BS",0x33,"Enable bleeding function 0x08",String(Bms.oz890Eeprom[0x33]>>7&1))+",\n");
-             client.print(parameter("PS",0x33,"Enable pre-charge function 0x10",String(Bms.oz890Eeprom[0x33]>>4&1))+",\n");
-             client.print(parameter("SS",0x33,"Enable the sleep mode 0x20",String(Bms.oz890Eeprom[0x33]>>5&1))+",\n");
-             client.print(parameter("UC",0x33,"Safety scan, access to user data 0xc0",String(Bms.oz890Eeprom[0x33]>>6&3))+",\n");
+             s+=parameter("BCNC",0x33,"Maximum bleeding cell number (+1) 0x03",String(Bms.oz890Eeprom[0x33]&3))+",\n";
+             s+=parameter("SEB",0x33,"Select external bleeding 0x04",String(Bms.oz890Eeprom[0x33]>>4&1))+",\n";
+             s+=parameter("BS",0x33,"Enable bleeding function 0x08",String(Bms.oz890Eeprom[0x33]>>7&1))+",\n";
+             s+=parameter("PS",0x33,"Enable pre-charge function 0x10",String(Bms.oz890Eeprom[0x33]>>4&1))+",\n";
+             s+=parameter("SS",0x33,"Enable the sleep mode 0x20",String(Bms.oz890Eeprom[0x33]>>5&1))+",\n";
+             s+=parameter("UC",0x33,"Safety scan, access to user data 0xc0",String(Bms.oz890Eeprom[0x33]>>6&3))+",\n";
              
-             client.print(parameter("OVT",0x4b,"Over voltage Treshold",String((int16_t)(Bms.oz890Eeprom[0x4a]+Bms.oz890Eeprom[0x4b]*256)*0.00122/8,3))+",\n");
-             client.print(parameter("OVR",0x4b,"Over voltage  Releasse",String((int16_t)(Bms.oz890Eeprom[0x4c]+Bms.oz890Eeprom[0x4d]*256)/8*0.00122,3))+",\n");
-             client.print(parameter("UVT",0x4f,"Under voltage Treshold",String((int16_t)(Bms.oz890Eeprom[0x4e]+Bms.oz890Eeprom[0x4f]*256)/8*0.00122,3))+",\n");
-             client.print(parameter("UVR",0x51,"Under voltage Releasse",String((int16_t)(Bms.oz890Eeprom[0x50]+Bms.oz890Eeprom[0x51]*256)/8*0.00122,3)));
-             client.print("]}\n");
+             s+=parameter("OVT",0x4b,"Over voltage Treshold",String((int16_t)(Bms.oz890Eeprom[0x4a]+Bms.oz890Eeprom[0x4b]*256)*0.00122/8,3))+",\n";
+             s+=parameter("OVR",0x4b,"Over voltage  Releasse",String((int16_t)(Bms.oz890Eeprom[0x4c]+Bms.oz890Eeprom[0x4d]*256)/8*0.00122,3))+",\n";
+             s+=parameter("UVT",0x4f,"Under voltage Treshold",String((int16_t)(Bms.oz890Eeprom[0x4e]+Bms.oz890Eeprom[0x4f]*256)/8*0.00122,3))+",\n";
+             s+=parameter("UVR",0x51,"Under voltage Releasse",String((int16_t)(Bms.oz890Eeprom[0x50]+Bms.oz890Eeprom[0x51]*256)/8*0.00122,3));
+             s+="]}\n";
+             server.send(200,"application/json",s);
 }
 
-void HttpServer::setParameter(WiFiClient &client,String urlLine)
+void HttpServer::setParameter()
 {
   Serial.println("setParameter:"+urlLine);
     Bms.oz890Eeprom[0x29]=0xd4;  // OCCDF=15  Over Discharge current treshold 
@@ -289,9 +341,12 @@ void HttpServer::setParameter(WiFiClient &client,String urlLine)
 #endif
 
 #ifndef OZ890BMS
-void HttpServer::setParameter(WiFiClient &client,String urlLine)
+void HttpServer::setParameter()
 {
-
+  String param;
+  String val;
+  if(server.hasArg("param=")) param=server.arg("param=");
+  if(server.hasArg("val=")) val=server.arg("val=");
   
 }
 #endif
@@ -301,80 +356,62 @@ String HttpServer::parameter(String name,int Reg,String comment,String value)
  return(String("{\"name\":")+"\""+name+"\","+"\"value\":"+value+",\"comment\":"+"\""+comment+"\"}");
 }
 
-void HttpServer::batt(WiFiClient &client) 
+void HttpServer::batt() 
 {
-  client.print("{\"cellVoltages\":[");
+  String s = "";
+  s+=("{\"cellVoltages\":[");
    for (int i = 0; i < NUM_CELL_MAX; i++)      
    {
-      client.print(String((Bms.cellVoltages[i]) / 1000.0, 3));
-      if(i<12)client.print(',');
+      s+=String((Bms.cellVoltages[i]) / 1000.0, 3);
+      if(i<NUM_CELL_MAX)s+",";
    
    }
-   client.print("],");
-   client.print("\"minCellVoltages\":[");
+   s+="],";
+   s+="\"minCellVoltages\":[";
    for (int i = 0; i < NUM_CELL_MAX; i++)      
    {
-      client.print(String((Bms.minCellVoltages[i]) / 1000.0, 3));
-      if(i<12)client.print(',');
+      s+=String((Bms.minCellVoltages[i]) / 1000.0, 3);
+      if(i<NUM_CELL_MAX)s+=",";
    
    }
-   client.print("],");
-   client.print("\"idleCellVoltages\":[");
+   s+="],";
+   s+="\"idleCellVoltages\":[";
    for (int i = 0; i < NUM_CELL_MAX; i++)      
    {
-      client.print(String((Bms.idleCellVoltages[i]) / 1000.0, 3));
-      if(i<12)client.print(',');
+      s+=String((Bms.idleCellVoltages[i]) / 1000.0, 3);
+      if(i<NUM_CELL_MAX)s+=",";
    
    }
-   client.print("],");
-   
-   client.print("\"V\":"+String(Bms.vTot,2)+",");
-   client.print("\"A\":"+String(Bms.current)+",");
-   client.print("\"Ah\":"+String(Bms.Ah)+",");
-   client.print("\"NumberOfCells\":"+String(Bms.cellNumber&015)+",");
-   client.print("\"ShutdownStatus\":\""+String(Bms.shutdownStatus,16)+"\",");
-   client.print("\"ErrorStatus\":\""+String(Bms.errorStatus,16)+"\",");
-   client.print("\"FetEnable\":\""+String(Bms.fetEnable,16)+"\",");
-   client.print("\"FetDisable\":\""+String(Bms.fetDisable,16)+"\"\}");
+   s+="],";
+   s+="\"V\":"+String(Bms.vTot,2)+",";
+   s+="\"A\":"+String(Bms.current)+",";
+   s+="\"Ah\":"+String(Bms.Ah)+",";
+   s+="\"NumberOfCells\":"+String(Bms.numCell)+"}";
+   #if 0
+   s+="\"ShutdownStatus\":\""+String(Bms.shutdownStatus,16)+"\",";
+   s+="\"ErrorStatus\":\""+String(Bms.errorStatus,16)+"\",";
+   s+="\"FetEnable\":\""+String(Bms.fetEnable,16)+"\",";
+   s+="\"FetDisable\":\""+String(Bms.fetDisable,16)+"\"\}";
+   #endif
+   server.send(200,"application/json",s);
+}
+
+void HttpServer::aplist()
+{
+  server.send(200,"application/json","[]");
+  
 }
 
 
-
-
-void HttpServer::clearLogFile(WiFiClient &client)
+void HttpServer::clearLogFile()
 {
   Bms.clearlog=1;
 }
 
-int HttpServer::getIntParam(String urlLine,String paramName,int defval)
-{
- int res=defval;
- int pos;
- urlLine=urlLine.substring(0,urlLine.indexOf(" HTTP"));
- if((pos=urlLine.indexOf(paramName))>5) {
-  pos+=paramName.length();
-  String s=urlLine.substring(pos,urlLine.indexOf("&",pos));
-  res=s.toInt();
-  Serial.println("from:"+urlLine+" parameter:"+paramName+"="+s+":"+String(res));
- }
- return res;
-}
 
-String HttpServer::getStringParam(String urlLine,String paramName,String defval)
-{
- String res=defval;
- int pos;
- urlLine=urlLine.substring(0,urlLine.indexOf(" HTTP"));
- if((pos=urlLine.indexOf(paramName))>5) {
-  pos+=paramName.length();
-  String s=urlLine.substring(pos,urlLine.indexOf("&",pos));
-  res=s;
-  Serial.println("from:"+urlLine+" parameter:"+paramName+"="+s);
- }
- return res;
-}
+ 
 
-void HttpServer::serveWifiSetupPage(WiFiClient& client)
+void HttpServer::serveWifiSetupPage()
 {
   String s = "";
   //appendHttp200(s);
@@ -392,12 +429,12 @@ void HttpServer::serveWifiSetupPage(WiFiClient& client)
   s += F("\t\tout += \"<tr><td></td><td>Note: Password is sent over plaintext, only use on secure network.</td></tr>\"\r\n\t\tout += \"<tr><td></td><td><input type=submit value='Submit'/></td></tr>\"\r\n\t\t");
   s += F("\t\tout += '</table></form>'\r\n\t\tdocument.getElementById(\"id01\").innerHTML = out;\r\n\t}\r\n</script>");
 
-  client.print(s);
+  server.send(200,"text/html",s);
   
 }
 
 //MQTT and device name
-void HttpServer::serveMqtt(WiFiClient& client, String req)
+void HttpServer::serveMqtt()
 {
   String s = "";
  // appendHttp200(s);
@@ -409,112 +446,67 @@ void HttpServer::serveMqtt(WiFiClient& client, String req)
   s += F("<table>");
   s += F("<tr><td><b>Setting</b></td><td><b>Value Key</b></td></tr>");
   s += F("<tr><td>Mqtt Server</td><td><input type=text name=w width=20 value='");
-  //s += _settings._mqttServer;
+  s += configFile.getMqttServer();
   s += F("'></td><td><input type=text name=r width=20 value='");
-  //s += _settings._mqttPort;
+  s += String(configFile.getMqttPort());
   s += F("'></td></tr>");
   s += F("<tr><td>Mqtt User/pass</td><td><input type=text name=u width=20 value='");
- // s += _settings._mqttUser;
+ s += configFile.getMqttUser();
   s += F("'></td><td><input type=text name=p width=20 value='");
-  //s += _settings._mqttPassword;
-  s += F("'></td></tr>");
-  
-  s += F("<tr><td>Device type (MPI, PCM, PIP)</td><td><input type=text name=t width=20 value='");
-  //s += _settings._deviceType;
+  s += configFile.getMqttPassword();
   s += F("'></td></tr>");
   
   s += F("<tr><td>Device Name</td><td><input type=text name=n width=20 value='");
-  //s += _settings._deviceName;
+  s += configFile.getDeviceName();
   s += F("'></td></tr>");
   
   s += F("<tr><td><br></td></tr>");
   
   s += F("<tr><td>Update rate</td><td><input type=text name=i width=5 value='");
- //s += String(_settings._mqttPort);
-  s += F("'></td><td>seconds</td></tr>");
+  s += configFile.getMqttInterval();
+  s += F("'></td><td>microseconds</td></tr>");
 
   s += F("<tr><td></td><td></td><td><input type=submit value='    Save Settings   '></td></tr>");
   s += F("</table></form>");
   s += F("</html>\r\n\r\n");  
-  client.print(s);
+  server.send(200,"text/html",s);
   
 }
 
-bool HttpServer::setStringIfStartsWith(String& s, String startswith, String& set)
-{
-  /*Serial1.print("  checking if ");
-  Serial1.print(s);
-  Serial1.print(" startswith ");
-  Serial1.println(startswith);*/
-
-  if (s.startsWith(startswith))
-  {
-    set = s.substring(startswith.length());
-    Serial1.print("match >");
-    Serial1.print(startswith);
-    Serial1.print("< = >");
-    Serial1.print(set);
-    Serial1.println("<");
-    return true;
-  }
-  return false;
-}
-
-String getNextToken(String& s, int& offset)
-{
-  char c;
-  String result = "";
-  do {
-    c = s[offset];
-    ++offset;  
-    if ((c != 0) && (c != '&') && (c != '?') && (c != ' ') && (c != '\r') && (c != '\n'))
-    {
-      result += c;
-    }
-    else { return result; }
-  } while(offset < s.length());
-  return result;
-}
 
 //Apply mqtt settings
-void HttpServer::serveSetMqtt(WiFiClient& client, String req)
+void HttpServer::serveSetMqtt()
 {
   String s = "";
 
-  Serial1.println("Setting MQTT & Device keys");
-  Serial1.println(req);
-
-  int offset = 0;
-  String token = getNextToken(req, offset);
-
-  while (token.length())
-  {    
-    if(setStringIfStartsWith(token, "w=", s)) configFile.setMqttServer(s);
-    //setStringIfStartsWith(token, "r=", _settings._mqttPort);
-    if(setStringIfStartsWith(token, "n=", s)) configFile.setDeviceName(s);
-    if(setStringIfStartsWith(token, "u=", s)) configFile.setMqttUser(s);
-    if(setStringIfStartsWith(token, "p=", s)) configFile.setMqttPassword(s);
-    if (setStringIfStartsWith(token, "r=", s))
-      configFile.setMqttPort((short)s.toInt());
-         
-    token = getNextToken(req, offset);
-  }
+  Serial.println("serveSetMqtt args="+String(server.args())+"  w="+server.arg("w")+" n="+server.arg("n"));
+ 
+  if(server.hasArg("w")) configFile.setMqttServer(server.arg("w"));
+  if(server.hasArg("n")) configFile.setDeviceName(server.arg("n"));
+  if(server.hasArg("u")) configFile.setMqttUser(server.arg("u"));
+  if(server.hasArg("p")) configFile.setMqttPassword(server.arg("p"));
+  if(server.hasArg("r")) configFile.setMqttPort(server.arg("p").toInt());
+  if(server.hasArg("i")) configFile.setMqttInterval(server.arg("i").toInt());
+  Serial.println(configFile.toString());
+  configFile.saveConfiguration(CONFIGFILE);
+  server.send(200, "text/plain", "");
 }
 
 
-void HttpServer::listDir(WiFiClient &client,String prefix,const char * dirname, uint8_t levels){
+String HttpServer::listDir(String prefix,const char * dirname, uint8_t levels){
     Serial.printf("Listing directory: %s\r\n", dirname);
 
+    String s;
     File root = SPIFFS.open(dirname);
     if(!root){
         Serial.println("- failed to open directory");
-        client.print(String("{\"error\":\"failed to open directory\",\"directory”:\"")+dirname+"\"}");
-        return;
+        s+=String("{\"error\":\"failed to open directory\",\"directory”:\"")+dirname+"\"}";
+        return s;
     }
     if(!root.isDirectory()){
         Serial.println(" - not a directory");
-        client.print(String("{\"error\":\"- not a directory\",\"directory\":\"")+dirname+"\"}");
-        return;
+        s+=String("{\"error\":\"- not a directory\",\"directory\":\"")+dirname+"\"}";
+        return s;
     }
 
   
@@ -524,17 +516,48 @@ void HttpServer::listDir(WiFiClient &client,String prefix,const char * dirname, 
             Serial.print("  DIR : ");
             Serial.println(file.name());
             if(levels){
-                listDir(client,prefix+file.name()+"/",file.name(), levels -1);
+                s+=listDir(prefix+file.name()+"/",file.name(), levels -1);
             }
         } else {
             Serial.print("  FILE: ");
             Serial.print(file.name());
             Serial.print("\tSIZE: ");
             Serial.println(file.size());
-            client.print(String("{\"name\":\"")+file.name()+"\",\"size\":"+String(file.size())+"}");
+            s+=String("{\"name\":\"")+file.name()+"\",\"size\":"+String(file.size())+"}";
         }
         file = root.openNextFile();
     }
+    return s;
 }
+
+void HttpServer::serveRoot()
+{
+  String s = "";
+  
+    s += F("<H1>KateBMS</H1></html>\r\n\r\n");
+    s += F("<a href=\"setupmqtt\">Configure MQTT</a><br>");
+    s += F("<a href=\"setupwifi\">Configure Wifi</a><br>");
+    s += F("<a href=\"dir\">FFS directory listing</a><br>");
+    s += F("<a href=\"batt\">Battery status</a><br>");
+    s += F("<a href=\"antframe\">Ant BMS raw frameBattery status</a><br>");
+    s += F("<a href=\"logStatus\">LogStatus</a><br>");
+    s += F("<a href=\"config\">Get raw config</a><br>");
+    s += F("<a href=\"logdata\">Get raw logdata 100 last lines</a><br>");
+    s += F("<a href=\"clearlog\">delete all logfiles</a><br>");
+    
+
+    //s += ("Devicename:"+ _settings._deviceName +"<br>");
+    //s += ("Type:"+ _settings._deviceType +"<br>");
+    //s += F("IP:"+ String(ip) +"<br>");
+    
+    s += F("<br><br><a href=\"reboot\">Reboot device</a><br>");
+    
+    s += F("<br><br><br><br><br>Kate Alhola<br>");
+
+  s += F("</html>\r\n\r\n");
+  s += F("");
+  server.send(200,"text/html",s);
+}
+
 
 

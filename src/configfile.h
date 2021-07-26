@@ -13,9 +13,9 @@ class ConfigFile {
   String getString(const char* key,const char  *defval);
   String getClientPasswd();
   String getApSsid();
-  void setApSsid();
+  void setApSsid(String);
   String getApPasswd();
-  void setApPasswd();
+  void setApPasswd(String);
   String toString();
   void setMqttPort(int);
   int getMqttPort();
@@ -26,7 +26,15 @@ class ConfigFile {
   void setMqttPassword(String);
   String getMqttPassword();
   void setMqttServer(String);
-  String getMqttServer(String);
+  String getMqttServer();
+  float getCellFullVolt();
+  void setCellFullVolt(float f);
+
+  void setMqttInterval(unsigned long);
+  unsigned long getMqttInterval();
+  void setIdleLogInterval(unsigned long);
+  unsigned long getIdleLogInterval();
+
   StaticJsonDocument<512> doc;
   JsonVariant _root;
 

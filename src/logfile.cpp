@@ -124,7 +124,9 @@ LogLine LogFile_::getLogLineAt(int &lix, File &f)
     int seq = logFileSeq;
     int currentlix = lix;
     int ix;
+    int n,pos; 
     LogLine ll;
+    ll.sync=0; // As default invalid
     Serial.println("getLogLineAt(" + String(lix) + ") seq=" + String(seq));
     while ((!f || !f.available()) && seq <= logFileSeq && seq > 0)
     {
@@ -171,19 +173,21 @@ LogLine LogFile_::getLogLineAt(int &lix, File &f)
            
         }
     };
-    if (f && f.available())
+    if (f && (f.available()>0))
     {
         do
         {
-            int pos = f.position();
-            int n = f.read((uint8_t *)&ll, sizeof(LogLine));
+            pos = f.position();
+            n = f.read((uint8_t *)&ll, sizeof(LogLine));
             if (ll.sync != SYNCSEQ) {
                 Serial.println("reading:"+String(ll.sync,16)+" "+String(pos));
                 f.seek(pos + 1);
             }
         } while (ll.sync != SYNCSEQ && f.available());
+        Serial.println("getLogLineAt3(" + String(currentlix) + ") pos="+String(pos)+" seq=" + String(seq) + " n=" + String(n) + " av=" + String(f.available()) + " name=");      
         lix++;
     }
+    Serial.println(ll.toString());
     return ll;
 };
 

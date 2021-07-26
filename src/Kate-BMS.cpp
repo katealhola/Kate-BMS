@@ -24,6 +24,8 @@
 #include "ant_bms.h"
 #include "configfile.h"
 #include <ArduinoJson.h>
+#include <PubSubClient.h>
+#include "mqtt.h"
 
 const char *ssid = DEFAULT_SSID;
 const char *password = DEFAULT_PASSWORD;
@@ -33,7 +35,7 @@ void i2cTask(void *parameter);
 #endif
 
 WiFiClient espClient;
-//PubSubClient client(espClient);
+PubSubClient mqttclient(espClient);
 ConfigFile configFile;
 
 void displayInit();
@@ -106,6 +108,7 @@ void setup()
   {
     Serial.println("SPIFFS Mount Failed");
   }
+  Serial.println("SPIFFS Mounted total_bytes:"+String(SPIFFS.totalBytes())+" used:"+String(SPIFFS.usedBytes()));
   configFile.loadConfiguration(CONFIGFILE);
   Serial.println(configFile.toString());
 
@@ -128,6 +131,7 @@ void setup()
   WiFi.begin(configFile.getString(CLIENTSSID, DEFAULT_SSID).c_str(), configFile.getString(CLIENTPASSWORD, DEFAULT_PASSWORD).c_str());
   WiFi.setAutoReconnect(true);
   WiFi.onEvent(WiFiEvent);
+  mqttInit();
 #ifdef OZ890BMS
   //i2cscan();
   xTaskCreate(i2cTask,   /* Task function. */
@@ -155,6 +159,15 @@ void setup()
               NULL);            /* Task handle. */
 
 #endif
+#ifdef MQTT
+xTaskCreate(mqttTask,   /* Task function. */
+              "mqttTask", /* String with name of task. */
+              10000,            /* Stack size in words. */
+              NULL,             /* Parameter passed as input of the task */
+              2,                /* Priority of the task. */
+              NULL);            /* Task handle. */
+              #endif
+
   while (WiFi.status() != WL_CONNECTED)
   {
     delay(500);
@@ -174,6 +187,8 @@ void loop()
     Serial.println("trying to reconnect Wifi");
     WiFi.reconnect();
     delay(5000);
+  } else {
+    //mqttclient.loop();
   }
 }
 

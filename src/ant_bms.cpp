@@ -4,8 +4,11 @@
 #include "config.h"
 #include <byteswap.h>
 #include "FastCRC.h"
+#include "configfile.h"
+#include "mqtt.h"
 
 FastCRC16 FCRC16;
+extern ConfigFile configFile;
 
 
 Bms_::Bms_()
@@ -15,22 +18,41 @@ Bms_::Bms_()
 
 bool Bms_::init()
 {
+  LogLine ll;
+  File f;
+
   first = true;
-  readeeprom = 0;
   clearlog = 0;
   logInterval=10000;
   lasttime=millis();
+  lastt=millis();
   lastLogTime=millis();
+  chargeLogInterval=60*1000;
+  dischargeLogInterval=60*1000;
+  idleLogInterval=10*60*1000;
+  mqttInterval=configFile.getMqttInterval();
+
   Serial2.begin(19200, SERIAL_8N1, RXD2, TXD2);
   vTot = 0;
   Ah = 0;
   sleep(3);
-  //bmsOk = ReadEeprom();
-  int cells = 13;
-  //cellNumber = oz890Eeprom[0x26] & 0x0f;
-  cellNumber = 13;
-  for (int i = 0; i < Bms.cellNumber; i++)
+  
+  cellFullVolt=4.1;
+  numCell = 0;
+  for (int i = 0; i < NUM_CELL_MAX; i++)
     minCellVoltages[i] = 43000;
+
+  
+
+  int index=-1;
+  ll=LogFile.getLogLineAt(index,f); 
+  if(ll.isValid()) {
+    String s=ll.toString();
+    Ah=ll.ah;
+    Serial.print("Read initial logLine:"+s);
+    Serial.println();
+    Serial.println("Setting Ah:"+String(Ah,3));
+  } 
   return bmsOk;
 }
 
@@ -92,10 +114,10 @@ void Bms_::sendBms(unsigned char *frame, unsigned int frameLen)
 {
   unsigned char *p=frame;
   unsigned short crc=FCRC16.modbus(frame+2, sizeof(2));
-  Serial.print("Sending to bms: "+String(crc,16));
+  /*Serial.print("Sending to bms: "+String(crc,16));
   for (int i = 0; i < frameLen; i++)
     Serial.print(String(frame[i] < 16 ? " 0" : " ") + String(frame[i], 16));
-  Serial.println();
+  Serial.println();*/
   for(int i=0;i<frameLen;i++) Serial2.write(*p++);
 }
 
@@ -104,32 +126,39 @@ void Bms_::parseAntFrame(unsigned char *frame, unsigned int frameLen)
   ant_frame *ant = (ant_frame *)frame;
 
   unsigned short crc=FCRC16.modbus(frame+4, 136-4);
+#if ANTDEBUG2
   Serial.print(String("frame:") + String(frameLen) +" "+ String(crc,16)+":"+String(ant->checkSum,16)+String(" ")+String((int)&(ant->numSeriesCell)-(int)frame)+" ");
   for (int i = 0; i < frameLen; i++)
     Serial.print(String(frame[i] < 16 ? " 0" : " ") + String(frame[i], 16));
   Serial.println();
-
+#endif
   float capEst=0.0;
 
   
   vTot = __bswap_16(ant->vtot) / 10.0;
   short cur = __bswap_16(ant->current[1]);
-  current = cur / 10.0;
+  current = cur / -10.0; // - is discharge
   short cur0 = __bswap_16(ant->current[0]);
   uint32_t ttime=__bswap_32(ant->cumulativeTime);
-  uint16_t numCell=ant->numSeriesCell;
+  numCell=ant->numSeriesCell;
   float remCap=__bswap_16(ant->remainingCapacity);
   float chargePersentage=ant->chargePersentage;
-  Serial.print("V:"+String(vTot) + "V "+String(current) + "A " + String(cur0) + " "+String(ant->chargePersentage)+"% "+String(remCap,3)+"Ah "+String(ttime)+" "+String(ant->numSeriesCell));
-  for (int i = 0; i < NUM_CELL_MAX; i++)
+  for (int i = 0; i < numCell; i++)
     cellVoltages[i] = __bswap_16(ant->vcell[i]);
-  Serial.println();
-  for (int i = 0; i < NUM_CELL_MAX; i++)
+
+  #if ANTDEBUG
+  Serial.print("V:"+String(vTot) + "V "+String(current) + "A " + String(cur0) + " "+String(ant->chargePersentage)+"% "+String(remCap,3)+"Ah "+String(ttime)+" "+String(ant->numSeriesCell));
+  Serial.println(); 
+  #endif
+  
+  #ifdef ANTDEBUG2
+  for (int i = 0; i < numCell; i++)
     Serial.print(String(__bswap_16(ant->vcell[i]) / 1000.0) + " ");
   Serial.println();
+  #endif
   minVolt = 100.0;
   maxVolt = 0;
-  for (int i = 0; i < cellNumber; i++) {
+  for (int i = 0; i < numCell; i++) {
     if ((cellVoltages[i] / 1000.0) > maxVolt) {
       maxCell = i;
       maxVolt = cellVoltages[i] / 1000.0;
@@ -140,21 +169,37 @@ void Bms_::parseAntFrame(unsigned char *frame, unsigned int frameLen)
     }
   }
   if (current < 0.5 && current > -0.5) {
-    for (int i = 0; i < cellNumber; i++) idleCellVoltages[i] = Bms.cellVoltages[i];
+    for (int i = 0; i < numCell; i++) idleCellVoltages[i] = Bms.cellVoltages[i];
   }
 
   if (current <= -0.2) {
-    for (int i = 0; i < cellNumber; i++) {
+    for (int i = 0; i < numCell; i++) {
       if (cellVoltages[i] < minCellVoltages[i]) minCellVoltages[i] = cellVoltages[i];
     }
   }
   if (current >= 0.5) {
-    for (int i = 0; i < cellNumber; i++) minCellVoltages[i] = cellVoltages[i]; // charging, minimum voltage not known
+    for (int i = 0; i < numCell; i++) minCellVoltages[i] = cellVoltages[i]; // charging, minimum voltage not known
   }
   uint32_t status=(ant->chargeFetState)<<24+(ant->dischargeFetState)<<16+(ant->balancerState)<<8;
-  ll = LogLine(vTot,    current, Ah,        remCap,                 chargePersentage,       capEst,            status,          numCell,           &cellVoltages[0],       lasttime,    ttime);
-//     LogLine(float _v,float _a,float _ah,float _remainingCapacity,float _chargePersentage,float _capacityEst,uint32_t _status,uint16_t _numcell, uint16_t *_cellVoltages,long int _ms,uint32_t _t)   
-  LogFile.addLogLine(&ll);
+  unsigned long t=millis();
+  Ah+=(t-lastt)*current/(1000*3600); // ms in hour
+  if(current>0.2 && maxVolt>cellFullVolt) Ah=0; // Battery full and chrging, reset Ah
+  ll = LogLine(vTot,    current, Ah,        remCap,                 chargePersentage,       capEst,            status,          numCell,           &cellVoltages[0],       t,    ttime);
+
+  // Log and send 
+
+  //     LogLine(float _v,float _a,float _ah,float _remainingCapacity,float _chargePersentage,float _capacityEst,uint32_t _status,uint16_t _numcell, uint16_t *_cellVoltages,long int _ms,uint32_t _t)   
+  if(((lastLogTime+chargeLogInterval)<t && current>0.2 )|| ((lastLogTime+dischargeLogInterval)<t  && current<-0.2) || (lastLogTime+idleLogInterval)<t)
+    {
+    LogFile.addLogLine(&combinedll);
+    combinedll=ll;
+    lastLogTime=t;
+  } else combinedll.combine(ll);
+
+
+
+  //LogFile.addLogLine(&ll);
+  lastt=t;
 };
 
 String Bms_::antFrameToJson()
