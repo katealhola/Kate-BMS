@@ -4,6 +4,12 @@
 #include "OZ890.h"
 #include "config.h"
 
+#include "configfile.h"
+#include "mqtt.h"
+
+extern ConfigFile configFile;
+
+
 Bms_::Bms_() {
   bmsOk = false;
 };
@@ -15,6 +21,16 @@ bool Bms_::init() {
   clearlog = 0;
   i2cadr = 0x30;
   lasttime;
+
+  logInterval=10000;
+  lasttime=millis();
+  lastt=millis();
+  lastLogTime=millis();
+  chargeLogInterval=60*1000;
+  dischargeLogInterval=60*1000;
+  idleLogInterval=10*60*1000;
+  mqttInterval=configFile.getMqttInterval();
+  cellFullVolt=configFile.getCellFullVolt();
 
   vTot = 0;
   Ah = 0;
@@ -142,7 +158,7 @@ void Bms_::readBms() {
   uint8_t ch=getRegister(0x55);
   uint8_t cl=getRegister(0x54);
   uint16_t rawCurrent2=ch*256+cl;
-   int16_t rawCurrent = getCurrentRaw();
+  int16_t rawCurrent = getCurrentRaw();
   currentFltr.addSample(rawCurrent);
   float current2 = (rawCurrent* 7.63E-6)/(senseResistor/10000.0);
   float current3 = rawCurrent / 352.255;
@@ -187,15 +203,24 @@ void Bms_::readBms() {
   fetEnable = getRegister(0x1e);
   fetDisable = getRegister(0x1f);
   int status=shutdownStatus<<16+errorStatus<<8+fetDisable;
+  int remCap=0;
+  int chargePersentage=0;
+  int capacityEst=0;
+
+  unsigned long t=millis();
+  Ah+=(t-lastt)*current/(1000*3600); // ms in hour
+  if(current>0.2 && maxVolt>cellFullVolt) Ah=0; // Battery full and chrging, reset Ah
+
   //ll = LogLine(vTot, current, Ah, shutdownStatus<<16+errorStatus<<8+fetDisable,0.0, &cellVoltages[0], lasttime);
-  ll = LogLine(vTot, current, Ah, remCap,chargePersentage,capacityEst, status, numCell, &cellVoltages[0], ms,ms/1000);
+  ll = LogLine(vTot, current, Ah, remCap,chargePersentage,capacityEst, status, numCell, &cellVoltages[0], t,t/1000);
   if(!combinedll.isValid()) combinedll=ll;
-  if((lastLogTime+chargeLogInterval<ttime && current>0.2 )|| (lastLogTime+dischargeLogInterval<ttime  && current<-0.2) || lastLogTime+idleLogInterval<ttime)
+  if(((lastLogTime+chargeLogInterval)<t && current>0.2 )|| ((lastLogTime+dischargeLogInterval)<t  && current<-0.2) || (lastLogTime+idleLogInterval)<t)
     {
     LogFile.addLogLine(&combinedll);
     combinedll=ll;
-    lastLogTime=ll.t;
+    lastLogTime=t;
   } else combinedll.combine(ll);
+
 
 
   /* if(logptr>=LOGSIZE) logptr=0;

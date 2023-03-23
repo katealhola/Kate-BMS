@@ -30,14 +30,23 @@ class Bms_  {
     bool bmsOk;
     byte val1,val2,stat1,stat2;
     bool first=true;
-    long lasttime;
     int i2cadr; 
+
+    unsigned long lasttime,lastLogTime,lastMqttTime,lastt;
+    unsigned long dischargeLogInterval;
+    unsigned long chargeLogInterval;
+    unsigned long idleLogInterval;
+    unsigned long logInterval;
+    unsigned long mqttInterval;
+    unsigned long lastReadMs;
+
     int n; 
     double espBatV;
 
     // From configFile
     float cellFullVolt;
     float cellEmptyVolt;
+
 
     double vTot=0;
     double Ah=0;

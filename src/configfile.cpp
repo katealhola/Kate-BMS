@@ -73,6 +73,6 @@ String ConfigFile::getApSsid(){return doc["ApSsid"] | DEFAULT_AP_SSID; };
   void ConfigFile::setCellFullVolt(float f) {doc["CellFullVolt"]=String(f,3);};
 
   void ConfigFile::setMqttInterval(unsigned long i){doc["MqttInterval"]=String(i);};
-  unsigned long  ConfigFile::getMqttInterval(){return String(doc["MqttInterval"] | "10000").toInt();};
+  unsigned long  ConfigFile::getMqttInterval(){return String(doc["MqttInterval"] | "60000").toInt();};
   void ConfigFile::setIdleLogInterval(unsigned long i){doc["MqttIdleLogInterval"]=String(i);};
   unsigned long ConfigFile::getIdleLogInterval(){return String(doc["MqttIdleLogInterval"] | "10000").toInt();};

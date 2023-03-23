@@ -187,7 +187,7 @@ LogLine LogFile_::getLogLineAt(int &lix, File &f)
         Serial.println("getLogLineAt3(" + String(currentlix) + ") pos="+String(pos)+" seq=" + String(seq) + " n=" + String(n) + " av=" + String(f.available()) + " name=");      
         lix++;
     }
-    Serial.println(ll.toString());
+    if(ll.sync == SYNCSEQ) Serial.println(ll.toString());
     return ll;
 };
 

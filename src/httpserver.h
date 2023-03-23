@@ -30,7 +30,7 @@ public:
   static void serveRoot();
 
   
-#ifdef O890BMS
+#ifdef OZ890BMS
   static void raweeprom();
   static void eeprom();
   static void readEeprom();
@@ -40,7 +40,6 @@ public:
   static void antFrame();
 #endif
   
-  String parameter(String name,int reg,String comment,String value);
   /*int getIntParam(String urlLine,String paramName,int defval);
   String getStringParam(String urlLine,String paramName,String defval);
   bool setStringIfStartsWith(String& s, String startswith, String& set);

@@ -107,17 +107,7 @@ public:
   uint16_t idleCellVoltages[NUM_CELL_MAX];
   double current;
 
-  // Deprecated
-  #if 0
-  uint8_t cellNumber;     // cellNumberReg 0x06
-  uint8_t shutdownStatus; // shutDownRegister // 0x15
-  uint8_t errorStatus;    // CheckYesRegister 0x1c
-  uint8_t fetEnable;      // FET Enable Register 0x1e
-  uint8_t fetDisable;     // FET Disable Register 0x1f
-  uint8_t senseResistor;  // Current sense resistor 0x34
-  uint8_t progeeprom = 0; // Flag to trigger program eeprom
-  uint8_t readeeprom = 0; // Flag to trigger read eeprom
-  #endif
+
   uint8_t clearlog = 0;
   LogLine ll;
   LogLine combinedll;

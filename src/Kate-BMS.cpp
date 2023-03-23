@@ -131,7 +131,7 @@ void setup()
   WiFi.begin(configFile.getString(CLIENTSSID, DEFAULT_SSID).c_str(), configFile.getString(CLIENTPASSWORD, DEFAULT_PASSWORD).c_str());
   WiFi.setAutoReconnect(true);
   WiFi.onEvent(WiFiEvent);
-  mqttInit();
+  
 #ifdef OZ890BMS
   //i2cscan();
   xTaskCreate(i2cTask,   /* Task function. */
@@ -160,6 +160,7 @@ void setup()
 
 #endif
 #ifdef MQTT
+mqttInit();
 xTaskCreate(mqttTask,   /* Task function. */
               "mqttTask", /* String with name of task. */
               10000,            /* Stack size in words. */

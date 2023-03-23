@@ -15,7 +15,9 @@ void HttpServer::begin()
 {
   server.begin();
   server.on("/", serveRoot); 
-  server.on("/antframe", antFrame); 
+  #ifdef ANTBMS
+  server.on("/antframe", antFrame);
+  #endif 
   server.on("/logStatus",logStat);  
   server.on("/config",getConfig);                      
   server.on("/dir",static_cast<void (*)()>(listDir));           
@@ -240,7 +242,7 @@ void HttpServer::raweeprom() {
              s="{\"values\":[";
             for (int i = 0; i < 128; i++) 
             {
-              s+=Bms.oz890Eeprom[i]);
+              s+=String(Bms.oz890Eeprom[i]);
               if(i<128-1)s+=",";
              }
              s+="],\n";
@@ -257,7 +259,7 @@ void HttpServer::readEeprom() {
             s="{\"values\":[";
             for (int i = 0; i < 128; i++) 
             {
-              s+=Bms.oz890Eeprom[i]);
+              s+=String(Bms.oz890Eeprom[i]);
               if(i<128-1)s+=",";
              }
             s+="],\n";
@@ -265,7 +267,10 @@ void HttpServer::readEeprom() {
             server.send(200,"application/json",s);
 }
 
-
+String parameter(String name,int Reg,String comment,String value)
+{
+ return(String("{\"name\":")+"\""+name+"\","+"\"value\":"+value+",\"comment\":"+"\""+comment+"\"}");
+}
 
 void HttpServer::eeprom() {
    // the content of the HTTP response follows the header:
@@ -278,7 +283,7 @@ void HttpServer::eeprom() {
               s+=parameter("CV"+String(i+1)+"O",i+5,"Cell Voltage offset",String(Bms.oz890Eeprom[i+5]*0.00122,3))+",\n";
             }
       
-             s+=parameter("INTO",2,"InternalTempOffset",String(Bms.oz890Eeprom[2]))+",\n");
+             s+=parameter("INTO",2,"InternalTempOffset",String(Bms.oz890Eeprom[2]))+",\n";
              s+=parameter("CSO",0x16,"currentOffset",String((int16_t)((uint8_t)Bms.oz890Eeprom[0x16]+(uint8_t)Bms.oz890Eeprom[0x17]*256),6))+",\n";
              s+=parameter("SR",0x34,"Current sense resistor",String(Bms.oz890Eeprom[0x34]*0.1,2))+",\n";
              s+=parameter("PFR",0x18,"PFRecord","\""+String(Bms.oz890Eeprom[0x18],16)+"\"")+",\n";
@@ -328,9 +333,10 @@ void HttpServer::eeprom() {
              server.send(200,"application/json",s);
 }
 
+
+
 void HttpServer::setParameter()
 {
-  Serial.println("setParameter:"+urlLine);
     Bms.oz890Eeprom[0x29]=0xd4;  // OCCDF=15  Over Discharge current treshold 
     Bms.oz890Eeprom[0x2b]=0xc7;  // SCC Short circuit treshold = 78
     Bms.oz890Eeprom[0x2d]=0x53;  // IDL_BLD_ENB=1 COCRC=2 ( Charge over current release 2s) DOCRC=2 ( DisCharge over current release 2s) 
@@ -351,10 +357,6 @@ void HttpServer::setParameter()
 }
 #endif
 
-String HttpServer::parameter(String name,int Reg,String comment,String value)
-{
- return(String("{\"name\":")+"\""+name+"\","+"\"value\":"+value+",\"comment\":"+"\""+comment+"\"}");
-}
 
 void HttpServer::batt() 
 {
@@ -363,7 +365,7 @@ void HttpServer::batt()
    for (int i = 0; i < NUM_CELL_MAX; i++)      
    {
       s+=String((Bms.cellVoltages[i]) / 1000.0, 3);
-      if(i<NUM_CELL_MAX)s+",";
+      if(i<NUM_CELL_MAX)s+=",";
    
    }
    s+="],";

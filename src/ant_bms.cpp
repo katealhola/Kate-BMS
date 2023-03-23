@@ -31,13 +31,14 @@ bool Bms_::init()
   dischargeLogInterval=60*1000;
   idleLogInterval=10*60*1000;
   mqttInterval=configFile.getMqttInterval();
+  cellFullVolt=configFile.getCellFullVolt();
 
   Serial2.begin(19200, SERIAL_8N1, RXD2, TXD2);
   vTot = 0;
   Ah = 0;
   sleep(3);
   
-  cellFullVolt=4.1;
+  
   numCell = 0;
   for (int i = 0; i < NUM_CELL_MAX; i++)
     minCellVoltages[i] = 43000;
@@ -183,7 +184,7 @@ void Bms_::parseAntFrame(unsigned char *frame, unsigned int frameLen)
   uint32_t status=(ant->chargeFetState)<<24+(ant->dischargeFetState)<<16+(ant->balancerState)<<8;
   unsigned long t=millis();
   Ah+=(t-lastt)*current/(1000*3600); // ms in hour
-  if(current>0.2 && maxVolt>cellFullVolt) Ah=0; // Battery full and chrging, reset Ah
+  //if(current>0.2 && maxVolt>cellFullVolt) Ah=0; // Battery full and chrging, reset Ah
   ll = LogLine(vTot,    current, Ah,        remCap,                 chargePersentage,       capEst,            status,          numCell,           &cellVoltages[0],       t,    ttime);
 
   // Log and send 
