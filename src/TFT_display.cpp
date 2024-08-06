@@ -3,6 +3,7 @@
 #include "ant_bms.h"
 #include <WiFi.h>
 
+#define TFT
 #ifdef TFT
 #include "Free_Fonts.h" // Include the header file attached to this sketch
 #include <Fonts/GFXFF/gfxfont.h>
@@ -126,6 +127,14 @@ int statusDisplay(TFT_eSprite &m )
   m.drawString(s, xpos, ypos, GFXFF);  // Draw the text string in the selected GFX free font
   ypos += m.fontHeight(GFXFF);                      // Get the font height and move ypos down
   //m.println(s);
+
+  s = String(Bms.SoC,0) + "% ";
+  s += String(Bms.remaining_Ah,3) + "Ah ";
+  s2 += s;
+  m.drawString(s, xpos, ypos, GFXFF);  // Draw the text string in the selected GFX free font
+  ypos += m.fontHeight(GFXFF);                      // Get the font height and move ypos down
+  //m.println(s);
+
   m.setFreeFont(FM9);
   
   s = String(Bms.minCell + 1) + "=" + String(Bms.minVolt, 2);
@@ -264,7 +273,7 @@ TFT_eSprite m = TFT_eSprite(&display);
     // display.fillScreen(CUSTOM_DARK);
     TFT_eSprite m = TFT_eSprite(&display);
     m.setColorDepth(8);
-    m.createSprite(display.width(), 80);
+    m.createSprite(display.width(), 140);
     m.fillSprite(TFT_BLACK);
 
     //m.setTextFont(2);
@@ -274,6 +283,7 @@ TFT_eSprite m = TFT_eSprite(&display);
     m.setCursor(0, 0);
     m.println();
     b = digitalRead(BUTTON);
+    b=1;
     //display.println("b="+String(b));
     if (b == 0 && bt == 1) {
       refresh = 1;

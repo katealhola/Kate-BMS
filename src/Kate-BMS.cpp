@@ -32,6 +32,7 @@ const char *password = DEFAULT_PASSWORD;
 
 #ifdef OZ890BMS
 void i2cTask(void *parameter);
+int i2cscan();
 #endif
 
 WiFiClient espClient;
@@ -98,6 +99,7 @@ void setup()
 
   Serial.begin(115200);
   Wire.begin(I2C_SDA, I2C_SCL, 80000);
+  Serial.printf("i2c initialized I2C_SDA=%d, I2C_SCL=%d\n",I2C_SDA, I2C_SCL);
 
   pinMode(BUTTON, INPUT);
   digitalWrite(BUTTON, HIGH);
@@ -133,20 +135,21 @@ void setup()
   WiFi.onEvent(WiFiEvent);
   
 #ifdef OZ890BMS
-  //i2cscan();
+  i2cscan();
   xTaskCreate(i2cTask,   /* Task function. */
               "i2cTask", /* String with name of task. */
               10000,     /* Stack size in words. */
               NULL,      /* Parameter passed as input of the task */
               2,         /* Priority of the task. */
               NULL);     /* Task handle. */
-#endif
+              #endif
+
 #ifdef ANTBMS
   xTaskCreate(uartBmsTask,   /* Task function. */
               "uartBmsTask", /* String with name of task. */
               10000,         /* Stack size in words. */
               NULL,          /* Parameter passed as input of the task */
-              2,             /* Priority of the task. */
+              5,             /* Priority of the task. */
               NULL);         /* Task handle. */
 #endif
 #ifdef TFT
@@ -247,6 +250,7 @@ void i2cTask(void *parameter)
     bt = b;
     // Serial.println("Button="+String(bt)+" "+String(n)+" "+String(dispTimeout)+" "+String(millis()));
 #endif
+
     n++;
 
     if (Bms.bmsOk && Bms.progeeprom)
@@ -303,6 +307,7 @@ void i2cTask(void *parameter)
       display.display();
 #endif
     }
+
     delay(100);
   }
 }
@@ -313,7 +318,7 @@ int i2cscan()
   byte error, address;
   int nDevices;
 
-  //Serial.println("Scanning.. SDA:"+String(Wire.sda)+" SCL:"+String(Wire.scl)+" "+String((int32_t)Wire.i2c,16)+" "+String(Wire.num));
+  //Serial.println("Scanning.. SDA:"+String(Wire.sda)+" SCL:"+String(Wire.scl)+" "+String(Wire.num));
 
   nDevices = 0;
   for (address = 1; address < 127; address++)

@@ -1,3 +1,4 @@
+#define ANTBMS
 #ifdef ANTBMS
 #include "ant_bms.h"
 #include "logline.h"
@@ -142,13 +143,17 @@ void Bms_::parseAntFrame(unsigned char *frame, unsigned int frameLen)
   short cur0 = __bswap_16(ant->current[0]);
   uint32_t ttime=__bswap_32(ant->cumulativeTime);
   numCell=ant->numSeriesCell;
-  float remCap=__bswap_16(ant->remainingCapacity);
+  float remCap=__bswap_32(ant->remainingCapacity);
   float chargePersentage=ant->chargePersentage;
+  SoC=chargePersentage;
+  remaining_Ah=remCap*0.000001;
+  capacity_Ah=__bswap_32(ant->capacity);
+
   for (int i = 0; i < numCell; i++)
     cellVoltages[i] = __bswap_16(ant->vcell[i]);
 
   #if ANTDEBUG
-  Serial.print("V:"+String(vTot) + "V "+String(current) + "A " + String(cur0) + " "+String(ant->chargePersentage)+"% "+String(remCap,3)+"Ah "+String(ttime)+" "+String(ant->numSeriesCell));
+  Serial.print("V:"+String(vTot) + "V "+String(current) + "A " + String(cur0) + " "+String(ant->chargePersentage)+"% "+String(remaining_Ah,3)+"Ah "+String(ant->remainingCapacity,16)+" " +String(ttime)+" "+String(ant->numSeriesCell));
   Serial.println(); 
   #endif
   

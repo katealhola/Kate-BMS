@@ -11,6 +11,7 @@ CAN_device_t CAN_cfg; // CAN Config
 //BldcMotorCanData_ BldcMotorCanData;
 //extern controller motorController;
 
+#ifdef CANBUS
 
 void canInit()
 {
@@ -91,3 +92,4 @@ void sendCanStaus()
     tx_frame.data.u8[7] = 0x07;
     ESP32Can.CANWriteFrame(&tx_frame);
   }
+  #endif

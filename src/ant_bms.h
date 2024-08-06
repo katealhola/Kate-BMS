@@ -23,10 +23,10 @@ public:
   unsigned short vcell[NUM_CELL_MAX];
   unsigned short current[2];
   unsigned char chargePersentage;
-  unsigned int capacity;
-  unsigned int remainingCapacity;
-  unsigned int cycleCapacity;
-  unsigned int cumulativeTime;
+  unsigned int  capacity;
+  unsigned int  remainingCapacity;
+  unsigned int  cycleCapacity;
+  unsigned int  cumulativeTime;
   unsigned short temperature[6];
   unsigned char chargeFetState;
   unsigned char dischargeFetState;
@@ -106,6 +106,10 @@ public:
   uint16_t minCellVoltages[NUM_CELL_MAX];
   uint16_t idleCellVoltages[NUM_CELL_MAX];
   double current;
+
+  float capacity_Ah;
+  float remaining_Ah;
+  float SoC;
 
 
   uint8_t clearlog = 0;

@@ -30,11 +30,11 @@ uint16_t getRegister(uint8_t regAddress) {
   int tstat=Wire.endTransmission(false);
   int rstat=Wire.requestFrom(i2cadr, 1);
   uint8_t byte = Wire.read();
- // Serial.println("readReg(w="+String(tstat)+" r="+String(rstat)+"):"+String(regAddress,16)+"="+String(byte,16));
+  //Serial.println("readReg(w="+String(tstat)+" r="+String(rstat)+"):"+String(regAddress,16)+"="+String(byte,16));
   if(tstat!=0) {
-    //Serial.println("readReg(w="+String(tstat)+" r="+String(rstat)+"):"+String(regAddress,16)+"="+String(byte,16)+" SCL="+String(digitalRead(I2C_SCL))+" SDA="+String(digitalRead(I2C_SDA)));
+    Serial.println("readReg(w="+String(tstat)+" r="+String(rstat)+"):"+String(regAddress,16)+"="+String(byte,16)+" SCL="+String(digitalRead(I2C_SCL))+" SDA="+String(digitalRead(I2C_SDA)));
     if(!digitalRead(I2C_SCL) && !digitalRead(I2C_SDA)) {
-   //   Serial.println("Reset OZ890 SCL="+String(digitalRead(I2C_SCL))+" SDA="+String(digitalRead(I2C_SDA)));
+      Serial.println("Reset OZ890 SCL="+String(digitalRead(I2C_SCL))+" SDA="+String(digitalRead(I2C_SDA)));
   /*    digitalWrite (OZ890_RESETN, LOW);
       delay(200);
       digitalWrite (OZ890_RESETN, HIGH);*/
@@ -57,7 +57,7 @@ void setRegister(uint8_t regAddress, uint8_t regValue) {
 
 boolean waitEepromBysy()
 {
-  int timeout=100;
+  int timeout=10;
    while (timeout-- && eepromBusy()); // wait for eeprom not be busy
    return timeout>0;
   
@@ -90,8 +90,9 @@ void sendStatusBit(uint8_t bit) {
 int getEepromWord(uint8_t address) {
 
   boolean eepromOk=true;
+  Serial.println("getEepromWord");
   if(eepromOk && (eepromOk=waitEepromBysy()))  setRegister(0x5e, address); // set eeprom address to read
-
+  Serial.println("getEepromWord 2");
   if(eepromOk && (eepromOk=waitEepromBysy())) 
   setRegister(0x5f, 0x55); // b01010101 (or 0x55) set eeprom access & word reading mode
 
@@ -103,7 +104,7 @@ int getEepromWord(uint8_t address) {
 
   if(eepromOk && (eepromOk=waitEepromBysy())) 
   setRegister(0x5f, 0x00); // disable eeprom access
-  //Serial.print(String("getEepromByte(")+String(address)+")="+String(byte2,16)+":"+String(byte1,16)+" ");
+  Serial.print(String("getEepromByte(")+String(address)+")="+String(byte2,16)+":"+String(byte1,16)+" ");
 
   if(!eepromOk) return -1;
    return (byte2<<8)+byte1;

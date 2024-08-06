@@ -209,7 +209,7 @@ void Bms_::readBms() {
 
   unsigned long t=millis();
   Ah+=(t-lastt)*current/(1000*3600); // ms in hour
-  if(current>0.2 && maxVolt>cellFullVolt) Ah=0; // Battery full and chrging, reset Ah
+  //if(current>0.2 && maxVolt>cellFullVolt) Ah=0; // Battery full and chrging, reset Ah
 
   //ll = LogLine(vTot, current, Ah, shutdownStatus<<16+errorStatus<<8+fetDisable,0.0, &cellVoltages[0], lasttime);
   ll = LogLine(vTot, current, Ah, remCap,chargePersentage,capacityEst, status, numCell, &cellVoltages[0], t,t/1000);
@@ -221,16 +221,7 @@ void Bms_::readBms() {
     lastLogTime=t;
   } else combinedll.combine(ll);
 
-
-
-  /* if(logptr>=LOGSIZE) logptr=0;
-    alog[logptr]=current;
-    vlog[logptr]=vTot;
-    mslog[logptr]=lasttime;
-    logptr++;*/
-
-
-
+  lastt=t;
 }
 
 

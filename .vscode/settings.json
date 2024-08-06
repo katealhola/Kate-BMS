@@ -6,5 +6,7 @@
     "arduino.path": "/Applications/Arduino.app",
     "files.associations": {
         "vector": "cpp"
-    }
+    },
+    "C_Cpp.errorSquiggles": "disabled",
+    "cmake.configureOnOpen": false
 }
