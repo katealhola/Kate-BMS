@@ -21,7 +21,6 @@
 #include <SD.h>
 #include "SPIFFS.h"
 #include "bms.h"
-#include "ant_bms.h"
 #include "configfile.h"
 #include <ArduinoJson.h>
 #include <PubSubClient.h>
@@ -42,12 +41,7 @@ ConfigFile configFile;
 void displayInit();
 void startUpDisplay();
 void connectingDisplay();
-#ifdef OLED
-void statusDisplay();
-void networkDisplay();
-void barplot(SSD1306 &m);
-void cellVoltagesDisplay();
-#endif
+
 
 #define LOGSIZE 100
 
@@ -69,7 +63,9 @@ void uartBmsTask(void *parameter);
 #endif
 
 #include "logline.h"
+#ifdef LOGFILE
 #include "logfile.h"
+#endif
 #include "httpserver.h"
 
 int packetCounter;
@@ -113,9 +109,10 @@ void setup()
   Serial.println("SPIFFS Mounted total_bytes:"+String(SPIFFS.totalBytes())+" used:"+String(SPIFFS.usedBytes()));
   configFile.loadConfiguration(CONFIGFILE);
   Serial.println(configFile.toString());
-
+  #ifdef LOGFILE
   LogFile.init();
   Serial.println("LogFile.init() done");
+  #endif
   displayInit();
 
   // Wire.setClock(300000);
@@ -142,11 +139,19 @@ void setup()
               NULL,      /* Parameter passed as input of the task */
               2,         /* Priority of the task. */
               NULL);     /* Task handle. */
-              #endif
+#endif
 
 #ifdef ANTBMS
   xTaskCreate(uartBmsTask,   /* Task function. */
               "uartBmsTask", /* String with name of task. */
+              10000,         /* Stack size in words. */
+              NULL,          /* Parameter passed as input of the task */
+              5,             /* Priority of the task. */
+              NULL);         /* Task handle. */
+#endif
+#ifdef JIKONGBMS
+  xTaskCreate(uartBmsTask,   /* Task function. */
+              "modbusBmsTask", /* String with name of task. */
               10000,         /* Stack size in words. */
               NULL,          /* Parameter passed as input of the task */
               5,             /* Priority of the task. */
@@ -196,122 +201,9 @@ void loop()
   }
 }
 
-#ifdef ANTBMS
-void uartBmsTask(void *parameter)
-{
-  String s, s2;
-  double vTmp;
 
-  Serial.print("Created uartBmsTask: Executing on core ");
-  Serial.println(xPortGetCoreID());
-  Bms.init();
-  Serial.println("BMS Initialized");
 
-  while (1)
-  {
-    if (Bms.clearlog)
-    {
-      LogFile.clearLog();
-      Bms.clearlog = 0;
-    };
-    Bms.readBms();
-    delay(150);
-  }
-}
-#endif
 
-#ifdef OZ890BMS
-void i2cTask(void *parameter)
-{
-  String s, s2;
-  double vTmp;
-
-  Serial.print("Created i2cTask: Executing on core ");
-  Serial.println(xPortGetCoreID());
-  Bms.init();
-  Serial.println("BMS Initialized");
-
-  unsigned int n = 0;
-  int refresh = 0;
-  unsigned int dispTimeout = 0;
-  int bt = 0;
-  int btb = 0;
-  int b;
-  int dispmode = 0;
-  while (1)
-  {
-#ifndef TFT // TFT dispolay is handled in separate tesk
-    b = digitalRead(BUTTON);
-    if (b == 0 && bt == 1)
-    {
-      refresh = 1;
-      dispTimeout = n;
-    }
-    bt = b;
-    // Serial.println("Button="+String(bt)+" "+String(n)+" "+String(dispTimeout)+" "+String(millis()));
-#endif
-
-    n++;
-
-    if (Bms.bmsOk && Bms.progeeprom)
-    {
-      Serial.println("Programming eeprom");
-      Bms.progeeprom = 0;
-      Bms.eepromProg();
-    }
-    if ((n % 50 == 0 && !Bms.bmsOk) || Bms.readeeprom)
-    {
-      Serial.println("Reading  eeprom");
-
-      Bms.bmsOk = Bms.ReadEeprom();
-      Bms.readeeprom = 0;
-    }
-    if (Bms.clearlog)
-    {
-      Bms.clearlog = 0;
-      LogFile.clearLog();
-    }
-    s = "";
-    if (n % 10 == 0)
-    {
-      Bms.readBms();
-      refresh = 1;
-    }
-    if (refresh)
-    {
-      refresh = 0;
-#ifdef OLED
-
-      display.init();
-      display.clear(); // clear the display
-
-      if ((bt == 0) && (btb == 1))
-        dispmode = dispmode >= 2 ? 0 : dispmode + 1;
-      btb = bt;
-      if (fabs(Bms.current) > 0.5 || Bms.fetDisable)
-        dispTimeout = n;
-      if (n < (dispTimeout + 600))
-      {
-        if (bt)
-          statusDisplay();
-        else
-        {
-          if (dispmode == 0)
-            networkDisplay();
-          if (dispmode == 1)
-            barplot(display);
-          if (dispmode == 2)
-            cellVoltagesDisplay();
-        }
-      }
-      display.display();
-#endif
-    }
-
-    delay(100);
-  }
-}
-#endif
 
 int i2cscan()
 {

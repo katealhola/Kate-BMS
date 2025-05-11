@@ -1,5 +1,11 @@
 # Kate-BMS
-Open smart BMS
+11.5.2025   A lot of refactoring, JK-Bms support, support for dual battery/BMS
+
+Open smart BMS monitor
+
+Supporter bms:
+JK-bms ( jikong bms )
+AntBms
 
 
 Libraries used

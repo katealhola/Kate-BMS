@@ -1,4 +1,4 @@
-#ifndef _HTTPSERVER_H_
+  #ifndef _HTTPSERVER_H_
 #define _HTTPSERVER_H_
 #include <Arduino.h>
 #include <WiFi.h>
@@ -13,7 +13,10 @@ public:
   void begin();
   
   static String listDir(String prefix,const char * dirname, uint8_t levels);
+  #ifdef LOGFILE
   static void getLogFile();
+  static void logStat();
+  #endif
   static void getFile();
   static void listDir();
   static void getConfig();
@@ -24,7 +27,7 @@ public:
   static void serveMqtt();
   static void serveSetMqtt();
   static void aplist();
-  static void logStat();
+ 
   static void serveRoot();
 
   

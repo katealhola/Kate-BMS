@@ -44,6 +44,10 @@
 #define NUMOFCELL 20
 #endif
 
+#ifdef JIKONGBMS
+#define NUMOFCELL 20
+#endif
+
 #define BUTTON BUTTON_1
 
 /*#define I2C_SDA 21
@@ -65,7 +69,8 @@
 #ifndef DEFAULT_MQTT_SERVER "192.168.1.5"
 #define DEFAULT_MQTT_SERVER "192.168.1.5"
 #endif
-#define LOGFILE "/battery.log"
+// Define thios in platformio.ini
+//#define LOGFILE "/battery.log"
 #define CONFIGFILE "/config.json"
 #ifndef DEFAULTCONFIG
 #define DEFAULTCONFIG "{'ClientSsid':'KattiMesh','DeviceName':'KateBMS','MqttServer':'192.168.1.5','CellFullVolt':'4.10'}"

@@ -4,7 +4,9 @@
 
 #define LOGSIZE 10
 #include "logline.h"
+#ifdef LOGFILE
 #include "logfile.h"
+#endif
 #include <Arduino.h>
 #include "FS.h"
 #include <SD.h>

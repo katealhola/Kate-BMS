@@ -12,6 +12,31 @@ FastCRC16 FCRC16;
 extern ConfigFile configFile;
 
 
+void uartBmsTask(void *parameter)
+{
+  String s, s2;
+  double vTmp;
+
+  Serial.println("Created uartBmsTask:");
+  Bms.init();
+  Serial.println("BMS Initialized");
+
+  while (1)
+  {
+    #ifdef LOGFILE
+    if (Bms.clearlog)
+    {
+      LogFile.clearLog();
+      Bms.clearlog = 0;
+    };
+    #endif
+    Bms.readBms();
+    delay(150);
+  }
+}
+
+
+
 Bms_::Bms_()
 {
   bmsOk = false;
@@ -44,17 +69,17 @@ bool Bms_::init()
   for (int i = 0; i < NUM_CELL_MAX; i++)
     minCellVoltages[i] = 43000;
 
-  
-
-  int index=-1;
-  ll=LogFile.getLogLineAt(index,f); 
-  if(ll.isValid()) {
-    String s=ll.toString();
-    Ah=ll.ah;
-    Serial.print("Read initial logLine:"+s);
-    Serial.println();
-    Serial.println("Setting Ah:"+String(Ah,3));
+    int index=-1;
+  #ifdef LOGFILE
+    ll=LogFile.getLogLineAt(index,f);
+    if(ll.isValid()) {
+      String s=ll.toString();
+      Ah=ll.ah;
+      Serial.print("Read initial logLine:"+s);
+      Serial.println();
+      Serial.println("Setting Ah:"+String(Ah,3));
   } 
+  #endif
   return bmsOk;
 }
 
@@ -197,7 +222,9 @@ void Bms_::parseAntFrame(unsigned char *frame, unsigned int frameLen)
   //     LogLine(float _v,float _a,float _ah,float _remainingCapacity,float _chargePersentage,float _capacityEst,uint32_t _status,uint16_t _numcell, uint16_t *_cellVoltages,long int _ms,uint32_t _t)   
   if(((lastLogTime+chargeLogInterval)<t && current>0.2 )|| ((lastLogTime+dischargeLogInterval)<t  && current<-0.2) || (lastLogTime+idleLogInterval)<t)
     {
+    #ifdef LOGFILE
     LogFile.addLogLine(&combinedll);
+    #endif
     combinedll=ll;
     lastLogTime=t;
   } else combinedll.combine(ll);

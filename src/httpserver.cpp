@@ -1,7 +1,14 @@
 #include "config.h"
 #include "httpserver.h"
-#include "bms.h"
-#include "ant_bms.h"
+#ifdef OZ890
+#include "oz890bms/bms.h"
+#endif
+#ifdef ANTBMS
+#include "antbms/ant_bms.h"
+#endif
+#ifdef JIKONGBMS
+#include "jikongbms/jikongbms.h"
+#endif
 #include "configfile.h"
 
 extern ConfigFile configFile;
@@ -18,7 +25,7 @@ void HttpServer::begin()
   #ifdef ANTBMS
   server.on("/antframe", antFrame);
   #endif 
-  server.on("/logStatus",logStat);  
+  
   server.on("/config",getConfig);                      
   server.on("/dir",static_cast<void (*)()>(listDir));           
   server.on("/clearlog",clearLogFile);  
@@ -27,7 +34,10 @@ void HttpServer::begin()
   server.on("/setmqtt",serveSetMqtt);
   server.on("/setupwifi",serveWifiSetupPage);
   server.on("/aplist.json",aplist);
+  #ifdef LOGFILE
   server.on("/logdata",getLogFile);
+  server.on("/logStatus",logStat);  
+  #endif
   server.on("/setparameter",setParameter);
 
   
@@ -126,6 +136,7 @@ void HttpServer::WifiLoop()
   delay(2);//allow the cpu to switch to other tasks
 }
 
+#ifdef LOGFILE
 //void HttpServer::getLogFile(WiFiClient &client,int offset,int nlines,int combine)
 void HttpServer::getLogFile()
 
@@ -169,7 +180,7 @@ void HttpServer::getLogFile()
     s+="]}";
     server.sendContent(s);
 }
-
+#endif
 void HttpServer::getFile()
 {
   String fileName=server.arg("fileName");
@@ -215,14 +226,14 @@ void HttpServer::getConfig()
 {
     server.send(200,"application/json",configFile.toString());
 }
-
+#ifdef LOGFILE
 void HttpServer::logStat()
 {
   String s=LogFile.toJson();
   Serial.println(s);
   server.send(200,"application/json",s);
 };
-
+#endif
 #ifdef ANTBMS
 void HttpServer::antFrame()
 {

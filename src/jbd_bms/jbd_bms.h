@@ -3,6 +3,7 @@
 #include <Arduino.h>
 
 #define ANT_BUF_LEN 160
+#define NUM_CELL_MAX 32
 
 namespace jbd_bms {
 
